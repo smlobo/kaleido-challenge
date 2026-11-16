@@ -29,5 +29,14 @@ go.work.sum
 .env
 
 # Editor/IDE
-# .idea/
-# .vscode/
+.idea/
+.vscode/
+
+# Contracts
+contracts/node_modules/
+contracts/out/
+contracts/cache/
+
+# Logs
+/log
+

@@ -1,0 +1,87 @@
+# Single-node Besu QBFT development chain
+#
+# docker compose up -d --wait # start; JSON-RPC on http://localhost:8545, ws://localhost:8546
+# docker compose down # stop and wipe chain state
+#
+# Chain ID 1337, 2s blocks, forks through Prague, zero gas price.
+# Prefunded (1,000,000 ETH each): the 10 standard Hardhat/Anvil dev accounts,
+# mnemonic "test test test test test test test test test test test junk".
+
+services:
+  besu:
+    image: hyperledger/besu:26.11.0
+    ports:
+      - 8545:8545 # HTTP JSON-RPC
+      - 8546:8546 # WebSocket JSON-RPC
+    configs:
+      - source: genesis
+        target: /config/genesis.json
+      - source: validator_key
+        target: /config/validator.key
+    command:
+      - --genesis-file=/config/genesis.json
+      - --node-private-key-file=/config/validator.key
+      - --data-path=/tmp/besu
+      - --min-gas-price=0
+      - --target-gas-limit=30000000
+      - --rpc-http-enabled
+      - --rpc-http-host=0.0.0.0
+      - --rpc-http-api=ETH,NET,WEB3,QBFT,DEBUG,TXPOOL
+      - --rpc-http-cors-origins=*
+      - --rpc-ws-enabled
+      - --rpc-ws-host=0.0.0.0
+      - --rpc-ws-api=ETH,NET,WEB3,QBFT,DEBUG,TXPOOL
+      - --host-allowlist=*
+      - --tx-pool=SEQUENCED
+      - --tx-pool-limit-by-account-percentage=1.0
+      - --tx-pool-max-size=1000000
+      - --revert-reason-enabled
+      - --discovery-enabled=false
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 5s bash -c ':> /dev/tcp/localhost/8545'"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+configs:
+  # Validator node key; its address (0x950bffd0f9ed35b37879c186ae770d2c94f08147)
+  # is encoded in genesis extraData — it is not recommended to change these.
+  # If you change the validator key, you must regenerate extraData and fork or wipe your chain.
+  validator_key:
+    content:
+      "0x77fe91741236e10635bf78fbf2a24433967381034e964578934d8f6f7e8ac658"
+  genesis:
+    content: |
+      {
+        "config": {
+          "chainId": 1337,
+          "berlinBlock": 0,
+          "londonBlock": 0,
+          "shanghaiTime": 0,
+          "cancunTime": 0,
+          "pragueTime": 0,
+          "zeroBaseFee": true,
+          "qbft": { "blockperiodseconds": 2, "epochlength": 30000, "requesttimeoutseconds": 4 }
+        },
+        "nonce": "0x0",
+        "timestamp": "0x0",
+        "gasLimit": "0x1C9C380",
+        "difficulty": "0x1",
+        "mixHash":
+        "0x63746963616c2062797a616e74696e65206661756c7420746f6c6572616e6365",
+        "coinbase": "0x0000000000000000000000000000000000000000",
+        "extraData":
+        "0xf83aa00000000000000000000000000000000000000000000000000000000000000000d594950bffd0f9ed35b37879c186ae770d2c94f08147c080c0",
+        "alloc": {
+          "f39Fd6e51aad88F6F4ce6aB8827279cffFb92266": { "balance": "0xd3c21bcecceda1000000" },
+          "70997970C51812dc3A010C7d01b50e0d17dc79C8": { "balance": "0xd3c21bcecceda1000000" },
+          "3C44CdDdB6a900fa2b585dd299e03d12FA4293BC": { "balance": "0xd3c21bcecceda1000000" },
+          "90F79bf6EB2c4f870365E785982E1f101E93b906": { "balance": "0xd3c21bcecceda1000000" },
+          "15d34AAf54267DB7D7c367839AAf71A00a2C6A65": { "balance": "0xd3c21bcecceda1000000" },
+          "9965507D1a55bcC2695C58ba16FB37d819B0A4dc": { "balance": "0xd3c21bcecceda1000000" },
+          "976EA74026E726554dB657fA54763abd0C3a0aa9": { "balance": "0xd3c21bcecceda1000000" },
+          "14dC79964da2C08b23698B3D3cc7Ca32193d9955": { "balance": "0xd3c21bcecceda1000000" },
+          "23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f": { "balance": "0xd3c21bcecceda1000000" },
+          "a0Ee7A142d267C1f36714E4a8F75612F20a79720": { "balance": "0xd3c21bcecceda1000000" }
+        }
+      }
