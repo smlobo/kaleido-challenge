@@ -22,6 +22,8 @@ Run the tests (the chain tests skip if Besu is not running):
 go test ./...
 ```
 
+More commands for inspecting the chain (`cast`, Besu logs, scripts): [docs/dev-tools.md](docs/dev-tools.md).
+
 ## Layout
 
 | Path | What |
