@@ -8,7 +8,7 @@ cd "$(dirname "$0")"
 
 command -v forge >/dev/null || { echo "forge not found: brew install foundry" >&2; exit 1; }
 command -v jq >/dev/null || { echo "jq not found: brew install jq" >&2; exit 1; }
-[ -d node_modules/@openzeppelin ] || npm install --silent
+[ -d node_modules/@openzeppelin ] && [ -d node_modules/forge-std ] || npm install --silent
 
 ABIGEN="go run github.com/ethereum/go-ethereum/cmd/abigen@v1.17.10"
 
@@ -25,3 +25,4 @@ export_contract() { # export_contract <ContractName> <go-package>
 }
 
 export_contract DemoNFT demonft
+export_contract TicketNFT ticketnft

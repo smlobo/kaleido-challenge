@@ -1,0 +1,2107 @@
+// Code generated via abigen V2 - DO NOT EDIT.
+// This file is a generated binding and any manual changes will be lost.
+
+package ticketnft
+
+import (
+	"bytes"
+	"errors"
+	"math/big"
+
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind/v2"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+)
+
+// Reference imports to suppress errors if they are not otherwise used.
+var (
+	_ = bytes.Equal
+	_ = errors.New
+	_ = big.NewInt
+	_ = common.Big1
+	_ = types.BloomLookup
+	_ = abi.ConvertType
+)
+
+// TicketNFTMetaData contains all meta data concerning the TicketNFT contract.
+var TicketNFTMetaData = bind.MetaData{
+	ABI: "[{\"type\":\"constructor\",\"inputs\":[{\"name\":\"name_\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"symbol_\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"maxSupply_\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"maxResaleBps_\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"eventStart_\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"baseURI_\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"admin\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"minter\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"gate\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"DEFAULT_ADMIN_ROLE\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"GATE_ROLE\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"MINTER_ROLE\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"approve\",\"inputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"balanceOf\",\"inputs\":[{\"name\":\"owner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"buyResale\",\"inputs\":[{\"name\":\"tokenId\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"maxPrice\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"cancelListing\",\"inputs\":[{\"name\":\"tokenId\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"checkIn\",\"inputs\":[{\"name\":\"tokenId\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"eventStart\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getApproved\",\"inputs\":[{\"name\":\"tokenId\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getRoleAdmin\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"grantRole\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"hasRole\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isApprovedForAll\",\"inputs\":[{\"name\":\"owner\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"listForResale\",\"inputs\":[{\"name\":\"tokenId\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"price\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"maxResaleBps\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint32\",\"internalType\":\"uint32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"maxSupply\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint32\",\"internalType\":\"uint32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"mintTicket\",\"inputs\":[{\"name\":\"to\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"tokenId\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"faceValue\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"recordHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"mintedCount\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint32\",\"internalType\":\"uint32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"name\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"ownerOf\",\"inputs\":[{\"name\":\"tokenId\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"renounceRole\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"callerConfirmation\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"resaleCap\",\"inputs\":[{\"name\":\"tokenId\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"revokeRole\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"safeTransferFrom\",\"inputs\":[{\"name\":\"from\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"to\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"tokenId\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"safeTransferFrom\",\"inputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"setApprovalForAll\",\"inputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"supportsInterface\",\"inputs\":[{\"name\":\"interfaceId\",\"type\":\"bytes4\",\"internalType\":\"bytes4\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"symbol\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"ticketInfo\",\"inputs\":[{\"name\":\"tokenId\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"faceValue\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"recordHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"listingPrice\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"tokenURI\",\"inputs\":[{\"name\":\"tokenId\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"transferFrom\",\"inputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"pure\"},{\"type\":\"event\",\"name\":\"Approval\",\"inputs\":[{\"name\":\"owner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"approved\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"tokenId\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ApprovalForAll\",\"inputs\":[{\"name\":\"owner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"operator\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"approved\",\"type\":\"bool\",\"indexed\":false,\"internalType\":\"bool\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"CheckedIn\",\"inputs\":[{\"name\":\"tokenId\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"},{\"name\":\"holder\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ListingCancelled\",\"inputs\":[{\"name\":\"tokenId\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"RoleAdminChanged\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"previousAdminRole\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"newAdminRole\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"RoleGranted\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"account\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"sender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"RoleRevoked\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"account\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"sender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"TicketListed\",\"inputs\":[{\"name\":\"tokenId\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"},{\"name\":\"seller\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"price\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"TicketMinted\",\"inputs\":[{\"name\":\"tokenId\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"},{\"name\":\"to\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"faceValue\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"recordHash\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"TicketResold\",\"inputs\":[{\"name\":\"tokenId\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"},{\"name\":\"from\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"to\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"price\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Transfer\",\"inputs\":[{\"name\":\"from\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"to\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"tokenId\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"AccessControlBadConfirmation\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"AccessControlUnauthorizedAccount\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"neededRole\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"type\":\"error\",\"name\":\"BuyerIsSeller\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ERC721IncorrectOwner\",\"inputs\":[{\"name\":\"sender\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"tokenId\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"owner\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ERC721InsufficientApproval\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"tokenId\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"ERC721InvalidApprover\",\"inputs\":[{\"name\":\"approver\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ERC721InvalidOperator\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ERC721InvalidOwner\",\"inputs\":[{\"name\":\"owner\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ERC721InvalidReceiver\",\"inputs\":[{\"name\":\"receiver\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ERC721InvalidSender\",\"inputs\":[{\"name\":\"sender\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ERC721NonexistentToken\",\"inputs\":[{\"name\":\"tokenId\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"EmptyRecordHash\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"EventStarted\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidConfig\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NotListed\",\"inputs\":[{\"name\":\"tokenId\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"NotTicketHolder\",\"inputs\":[{\"name\":\"tokenId\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"PriceAboveCap\",\"inputs\":[{\"name\":\"price\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"cap\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"PriceAboveMaxPrice\",\"inputs\":[{\"name\":\"price\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"maxPrice\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"SoldOut\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"TransfersDisabled\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZeroPrice\",\"inputs\":[]}]",
+	ID:  "TicketNFT",
+	Bin: "0x60e060405234801561000f575f5ffd5b50604051611ec2380380611ec283398101604081905261002e916102f9565b88885f61003b8382610478565b5060016100488282610478565b50505063ffffffff87161580610067575042856001600160401b031611155b15610085576040516306b7c75960e31b815260040160405180910390fd5b6001600160a01b03831615806100a257506001600160a01b038216155b806100b457506001600160a01b038116155b156100d2576040516306b7c75960e31b815260040160405180910390fd5b63ffffffff808816608052861660a0526001600160401b03851660c05260096100fb8582610478565b506101065f8461016b565b506101317f9f2df0fed2c77648de5860a4cc508cd0818c85b8b8a1ab4ceeef8d981c8956a68361016b565b5061015c7f79aaa02ca9ee405c105f18ab3335a0dcabff839ebd075c93f39bce4cef295be48261016b565b50505050505050505050610536565b5f8281526006602090815260408083206001600160a01b038516845290915281205460ff1661020f575f8381526006602090815260408083206001600160a01b03861684529091529020805460ff191660011790556101c73390565b6001600160a01b0316826001600160a01b0316847f2f8788117e7eff1d82e926ec794901d17c78024a50270940304540a733656f0d60405160405180910390a4506001610212565b505f5b92915050565b634e487b7160e01b5f52604160045260245ffd5b5f82601f83011261023b575f5ffd5b81516001600160401b0381111561025457610254610218565b604051601f8201601f19908116603f011681016001600160401b038111828210171561028257610282610218565b604052818152838201602001851015610299575f5ffd5b8160208501602083015e5f918101602001919091529392505050565b805163ffffffff811681146102c8575f5ffd5b919050565b80516001600160401b03811681146102c8575f5ffd5b80516001600160a01b03811681146102c8575f5ffd5b5f5f5f5f5f5f5f5f5f6101208a8c031215610312575f5ffd5b89516001600160401b03811115610327575f5ffd5b6103338c828d0161022c565b60208c0151909a5090506001600160401b03811115610350575f5ffd5b61035c8c828d0161022c565b98505061036b60408b016102b5565b965061037960608b016102b5565b955061038760808b016102cd565b60a08b01519095506001600160401b038111156103a2575f5ffd5b6103ae8c828d0161022c565b9450506103bd60c08b016102e3565b92506103cb60e08b016102e3565b91506103da6101008b016102e3565b90509295985092959850929598565b600181811c908216806103fd57607f821691505b60208210810361041b57634e487b7160e01b5f52602260045260245ffd5b50919050565b601f821115610473578282111561047357805f5260205f20601f840160051c602085101561044c57505f5b90810190601f840160051c035f5b8181101561046f575f8382015560010161045a565b5050505b505050565b81516001600160401b0381111561049157610491610218565b6104a58161049f84546103e9565b84610421565b6020601f8211600181146104d7575f83156104c05750848201515b5f19600385901b1c1916600184901b17845561052f565b5f84815260208120601f198516915b8281101561050657878501518255602094850194600190920191016104e6565b508482101561052357868401515f19600387901b60f8161c191681555b505060018360011b0184555b5050505050565b60805160a05160c05161193f6105835f395f81816102a1015281816106580152818161087c0152610a7e01525f81816103a9015261062e01525f818161048001526108ce015261193f5ff3fe608060405234801561000f575f5ffd5b50600436106101e7575f3560e01c806391d1485411610109578063cf721b151161009e578063df0613681161006e578063df061368146104a2578063e95a644f146104c9578063e985e9c5146104dc578063fa713083146104ef575f5ffd5b8063cf721b1514610431578063d539139314610441578063d547741f14610468578063d5abeb011461047b575f5ffd5b8063a22cb465116100d9578063a22cb465146103ef578063a89d2d38146103fd578063b88d4fde14610410578063c87b56dd1461041e575f5ffd5b806391d1485414610391578063923aee8e146103a457806395d89b41146103e0578063a217fddf146103e8575f5ffd5b8063248a9ca31161017f57806342842e0e1161014f57806342842e0e1461034557806359e1c251146103585780636352211e1461036b57806370a082311461037e575f5ffd5b8063248a9ca3146102ea5780632f2ff15d1461030c578063305a67a81461031f57806336568abe14610332575f5ffd5b80630e0caabf116101ba5780630e0caabf146102685780631f7d863c14610289578063202887e71461029c57806323b872dd146102dc575f5ffd5b806301ffc9a7146101eb57806306fdde0314610213578063081812fc14610228578063095ea7b314610253575b5f5ffd5b6101fe6101f9366004611587565b610536565b60405190151581526020015b60405180910390f35b61021b610546565b60405161020a91906115ae565b61023b6102363660046115e3565b6105d5565b6040516001600160a01b03909116815260200161020a565b610266610261366004611615565b6105fc565b005b61027b6102763660046115e3565b610615565b60405190815260200161020a565b61026661029736600461163d565b610656565b6102c37f000000000000000000000000000000000000000000000000000000000000000081565b60405167ffffffffffffffff909116815260200161020a565b61026661026136600461165d565b61027b6102f83660046115e3565b5f9081526006602052604090206001015490565b61026661031a366004611697565b61075b565b61026661032d3660046115e3565b610785565b610266610340366004611697565b6107fe565b61026661035336600461165d565b610836565b6102666103663660046116c1565b610850565b61023b6103793660046115e3565b6109f4565b61027b61038c3660046116f7565b6109fe565b6101fe61039f366004611697565b610a43565b6103cb7f000000000000000000000000000000000000000000000000000000000000000081565b60405163ffffffff909116815260200161020a565b61021b610a6d565b61027b5f81565b610266610261366004611710565b61026661040b36600461163d565b610a7c565b61026661026136600461175d565b61021b61042c3660046115e3565b610bcb565b6007546103cb9063ffffffff1681565b61027b7f9f2df0fed2c77648de5860a4cc508cd0818c85b8b8a1ab4ceeef8d981c8956a681565b610266610476366004611697565b610c30565b6103cb7f000000000000000000000000000000000000000000000000000000000000000081565b61027b7f79aaa02ca9ee405c105f18ab3335a0dcabff839ebd075c93f39bce4cef295be481565b6102666104d73660046115e3565b610c54565b6101fe6104ea36600461183a565b610cde565b61051b6104fd3660046115e3565b5f908152600860205260409020805460018201546002909201549092565b6040805193845260208401929092529082015260600161020a565b5f61054082610d0b565b92915050565b60605f805461055490611862565b80601f016020809104026020016040519081016040528092919081815260200182805461058090611862565b80156105cb5780601f106105a2576101008083540402835291602001916105cb565b820191905f5260205f20905b8154815290600101906020018083116105ae57829003601f168201915b5050505050905090565b5f6105df82610d2f565b505f828152600460205260409020546001600160a01b0316610540565b604051638574adcf60e01b815260040160405180910390fd5b5f818152600860205260408120546105409063ffffffff7f000000000000000000000000000000000000000000000000000000000000000016612710610d67565b7f000000000000000000000000000000000000000000000000000000000000000067ffffffffffffffff1642106106a05760405163292403c360e01b815260040160405180910390fd5b6106a982610e17565b805f036106c957604051634dfba02360e01b815260040160405180910390fd5b5f6106d383610615565b90508082111561070557604051634216244560e11b815260048101839052602481018290526044015b60405180910390fd5b5f838152600860205260409081902060020183905551339084907f22968ec3be3687b180f3544163a034b88d57b48159d9a7e9a1b610fdb2d05f809061074e9086815260200190565b60405180910390a3505050565b5f8281526006602052604090206001015461077581610e4e565b61077f8383610e58565b50505050565b61078e81610e17565b5f8181526008602052604081206002015490036107c15760405163068bb67560e51b8152600481018290526024016106fc565b5f818152600860205260408082206002018290555182917f411aee90354c51b1b04cd563fcab2617142a9d50da19232d888547c8a1b7fd8a91a250565b6001600160a01b03811633146108275760405163334bd91960e11b815260040160405180910390fd5b6108318282610ee9565b505050565b61083183838360405180602001604052805f8152506105fc565b7f9f2df0fed2c77648de5860a4cc508cd0818c85b8b8a1ab4ceeef8d981c8956a661087a81610e4e565b7f000000000000000000000000000000000000000000000000000000000000000067ffffffffffffffff1642106108c45760405163292403c360e01b815260040160405180910390fd5b60075463ffffffff7f0000000000000000000000000000000000000000000000000000000000000000811691161061090f576040516352df9fe560e01b815260040160405180910390fd5b8161092d57604051631ed0d70b60e11b815260040160405180910390fd5b6007805463ffffffff16905f6109428361189a565b825463ffffffff9182166101009390930a9283029190920219909116179055506040805160608101825284815260208082018581525f838501818152898252600890935293909320915182559151600182015590516002909101556109a78585610f54565b60408051848152602081018490526001600160a01b0387169186917f8811fc041e6a57d95124333f7756d53a5041b848d804206cba405dafd50661d4910160405180910390a35050505050565b5f61054082610d2f565b5f6001600160a01b038216610a28576040516322718ad960e21b81525f60048201526024016106fc565b506001600160a01b03165f9081526003602052604090205490565b5f9182526006602090815260408084206001600160a01b0393909316845291905290205460ff1690565b60606001805461055490611862565b7f000000000000000000000000000000000000000000000000000000000000000067ffffffffffffffff164210610ac65760405163292403c360e01b815260040160405180910390fd5b5f8281526008602052604081206002015490819003610afb5760405163068bb67560e51b8152600481018490526024016106fc565b81811115610b265760405163f319e5e360e01b815260048101829052602481018390526044016106fc565b5f610b30846109f4565b90506001600160a01b0381163303610b5b57604051636183505960e01b815260040160405180910390fd5b5f84815260086020526040812060020155610b77813386610fb5565b336001600160a01b0316816001600160a01b0316857fd59a36d8310ffb140214be490baf3fe8961f859a17199ec1bf9015c8b734001185604051610bbd91815260200190565b60405180910390a450505050565b6060610bd682610d2f565b505f610be0611062565b90505f815111610bfe5760405180602001604052805f815250610c29565b80610c0884611071565b604051602001610c199291906118e1565b6040516020818303038152906040525b9392505050565b5f82815260066020526040902060010154610c4a81610e4e565b61077f8383610ee9565b7f79aaa02ca9ee405c105f18ab3335a0dcabff839ebd075c93f39bce4cef295be4610c7e81610e4e565b5f610c88836109f4565b5f848152600860205260408120600201559050610ca483611101565b6040516001600160a01b0382169084907f70790c0ab38e2aca9b5520985fe66db2a3700c3680b61c3853b5554f67a2c31c905f90a3505050565b6001600160a01b039182165f90815260056020908152604080832093909416825291909152205460ff1690565b5f6001600160e01b03198216637965db0b60e01b148061054057506105408261113d565b5f818152600260205260408120546001600160a01b03168061054057604051637e27328960e01b8152600481018490526024016106fc565b5f5f5f610d74868661118c565b91509150815f03610d9857838181610d8e57610d8e6118f5565b0492505050610c29565b818411610daf57610daf60038515026011186111a8565b5f848688095f868103871696879004966002600389028118808a02820302808a02820302808a02820302808a02820302808a02820302808a02909103029181900381900460010185841190960395909502919093039390930492909217029150509392505050565b33610e21826109f4565b6001600160a01b031614610e4b576040516316344afb60e31b8152600481018290526024016106fc565b50565b610e4b81336111b9565b5f610e638383610a43565b610ee2575f8381526006602090815260408083206001600160a01b03861684529091529020805460ff19166001179055610e9a3390565b6001600160a01b0316826001600160a01b0316847f2f8788117e7eff1d82e926ec794901d17c78024a50270940304540a733656f0d60405160405180910390a4506001610540565b505f610540565b5f610ef48383610a43565b15610ee2575f8381526006602090815260408083206001600160a01b0386168085529252808320805460ff1916905551339286917ff6391f5c32d9c69d2a47ea670b442974b53935d1edc7fd64eb21e047a839171b9190a4506001610540565b6001600160a01b038216610f7d57604051633250574960e11b81525f60048201526024016106fc565b5f610f8983835f6111f2565b90506001600160a01b03811615610831576040516339e3563760e11b81525f60048201526024016106fc565b6001600160a01b038216610fde57604051633250574960e11b81525f60048201526024016106fc565b5f610fea83835f6111f2565b90506001600160a01b03811661101657604051637e27328960e01b8152600481018390526024016106fc565b836001600160a01b0316816001600160a01b03161461077f576040516364283d7b60e01b81526001600160a01b03808616600483015260248201849052821660448201526064016106fc565b60606009805461055490611862565b60605f61107d836112e4565b60010190505f8167ffffffffffffffff81111561109c5761109c611749565b6040519080825280601f01601f1916602001820160405280156110c6576020820181803683370190505b5090508181016020015b5f19016f181899199a1a9b1b9c1cb0b131b232b360811b600a86061a8153600a85049450846110d057509392505050565b5f61110d5f835f6111f2565b90506001600160a01b03811661113957604051637e27328960e01b8152600481018390526024016106fc565b5050565b5f6001600160e01b031982166380ac58cd60e01b148061116d57506001600160e01b03198216635b5e139f60e01b145b8061054057506301ffc9a760e01b6001600160e01b0319831614610540565b5f805f1983850993909202808410938190039390930393915050565b634e487b715f52806020526024601cfd5b6111c38282610a43565b6111395760405163e2517d3f60e01b81526001600160a01b0382166004820152602481018390526044016106fc565b5f828152600260205260408120546001600160a01b039081169083161561121e5761121e8184866113bb565b6001600160a01b03811615611258576112395f855f5f61141f565b6001600160a01b0381165f90815260036020526040902080545f190190555b6001600160a01b03851615611286576001600160a01b0385165f908152600360205260409020805460010190555b5f8481526002602052604080822080546001600160a01b0319166001600160a01b0389811691821790925591518793918516917fddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef91a4949350505050565b5f8072184f03e93ff9f4daa797ed6e38ed64bf6a1f0160401b83106113225772184f03e93ff9f4daa797ed6e38ed64bf6a1f0160401b830492506040015b6d04ee2d6d415b85acef8100000000831061134e576d04ee2d6d415b85acef8100000000830492506020015b662386f26fc10000831061136c57662386f26fc10000830492506010015b6305f5e1008310611384576305f5e100830492506008015b612710831061139857612710830492506004015b606483106113aa576064830492506002015b600a83106105405760010192915050565b6113c6838383611523565b610831576001600160a01b0383166113f457604051637e27328960e01b8152600481018290526024016106fc565b60405163177e802f60e01b81526001600160a01b0383166004820152602481018290526044016106fc565b808061143357506001600160a01b03821615155b156114f4575f61144284610d2f565b90506001600160a01b0383161580159061146e5750826001600160a01b0316816001600160a01b031614155b8015611481575061147f8184610cde565b155b156114aa5760405163a9fbf51f60e01b81526001600160a01b03841660048201526024016106fc565b81156114f25783856001600160a01b0316826001600160a01b03167f8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b92560405160405180910390a45b505b50505f90815260046020526040902080546001600160a01b0319166001600160a01b0392909216919091179055565b5f6001600160a01b0383161580159061157f5750826001600160a01b0316846001600160a01b0316148061155c575061155c8484610cde565b8061157f57505f828152600460205260409020546001600160a01b038481169116145b949350505050565b5f60208284031215611597575f5ffd5b81356001600160e01b031981168114610c29575f5ffd5b602081525f82518060208401528060208501604085015e5f604082850101526040601f19601f83011684010191505092915050565b5f602082840312156115f3575f5ffd5b5035919050565b80356001600160a01b0381168114611610575f5ffd5b919050565b5f5f60408385031215611626575f5ffd5b61162f836115fa565b946020939093013593505050565b5f5f6040838503121561164e575f5ffd5b50508035926020909101359150565b5f5f5f6060848603121561166f575f5ffd5b611678846115fa565b9250611686602085016115fa565b929592945050506040919091013590565b5f5f604083850312156116a8575f5ffd5b823591506116b8602084016115fa565b90509250929050565b5f5f5f5f608085870312156116d4575f5ffd5b6116dd856115fa565b966020860135965060408601359560600135945092505050565b5f60208284031215611707575f5ffd5b610c29826115fa565b5f5f60408385031215611721575f5ffd5b61172a836115fa565b91506020830135801515811461173e575f5ffd5b809150509250929050565b634e487b7160e01b5f52604160045260245ffd5b5f5f5f5f60808587031215611770575f5ffd5b611779856115fa565b9350611787602086016115fa565b925060408501359150606085013567ffffffffffffffff8111156117a9575f5ffd5b8501601f810187136117b9575f5ffd5b803567ffffffffffffffff8111156117d3576117d3611749565b604051601f8201601f19908116603f0116810167ffffffffffffffff8111828210171561180257611802611749565b604052818152828201602001891015611819575f5ffd5b816020840160208301375f6020838301015280935050505092959194509250565b5f5f6040838503121561184b575f5ffd5b611854836115fa565b91506116b8602084016115fa565b600181811c9082168061187657607f821691505b60208210810361189457634e487b7160e01b5f52602260045260245ffd5b50919050565b5f63ffffffff821663ffffffff81036118c157634e487b7160e01b5f52601160045260245ffd5b60010192915050565b5f81518060208401855e5f93019283525090919050565b5f61157f6118ef83866118ca565b846118ca565b634e487b7160e01b5f52601260045260245ffdfea26469706673582212204ce5c63f7744ee2d114535e456d3311ccd4d4ccd35a7fb74d83e74c04ad1c8c764736f6c63430008260033",
+}
+
+// TicketNFT is an auto generated Go binding around an Ethereum contract.
+type TicketNFT struct {
+	abi abi.ABI
+}
+
+// GetABI returns the ABI associated with this contract binding.
+func (c *TicketNFT) GetABI() abi.ABI {
+	return c.abi
+}
+
+// NewTicketNFT creates a new instance of TicketNFT.
+func NewTicketNFT() *TicketNFT {
+	parsed, err := TicketNFTMetaData.ParseABI()
+	if err != nil {
+		panic(errors.New("invalid ABI: " + err.Error()))
+	}
+	return &TicketNFT{abi: *parsed}
+}
+
+// Instance creates a wrapper for a deployed contract instance at the given address.
+// Use this to create the instance object passed to abigen v2 library functions Call, Transact, etc.
+func (c *TicketNFT) Instance(backend bind.ContractBackend, addr common.Address) *bind.BoundContract {
+	return bind.NewBoundContract(addr, c.abi, backend, backend, backend)
+}
+
+// PackConstructor is the Go binding used to pack the parameters required for
+// contract deployment.
+//
+// Solidity: constructor(string name_, string symbol_, uint32 maxSupply_, uint32 maxResaleBps_, uint64 eventStart_, string baseURI_, address admin, address minter, address gate) returns()
+func (ticketNFT *TicketNFT) PackConstructor(name_ string, symbol_ string, maxSupply_ uint32, maxResaleBps_ uint32, eventStart_ uint64, baseURI_ string, admin common.Address, minter common.Address, gate common.Address) []byte {
+	enc, err := ticketNFT.abi.Pack("", name_, symbol_, maxSupply_, maxResaleBps_, eventStart_, baseURI_, admin, minter, gate)
+	if err != nil {
+		panic(err)
+	}
+	return enc
+}
+
+// PackDEFAULTADMINROLE is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0xa217fddf.  This method will panic if any
+// invalid/nil inputs are passed.
+//
+// Solidity: function DEFAULT_ADMIN_ROLE() view returns(bytes32)
+func (ticketNFT *TicketNFT) PackDEFAULTADMINROLE() []byte {
+	enc, err := ticketNFT.abi.Pack("DEFAULT_ADMIN_ROLE")
+	if err != nil {
+		panic(err)
+	}
+	return enc
+}
+
+// TryPackDEFAULTADMINROLE is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0xa217fddf.  This method will return an error
+// if any inputs are invalid/nil.
+//
+// Solidity: function DEFAULT_ADMIN_ROLE() view returns(bytes32)
+func (ticketNFT *TicketNFT) TryPackDEFAULTADMINROLE() ([]byte, error) {
+	return ticketNFT.abi.Pack("DEFAULT_ADMIN_ROLE")
+}
+
+// UnpackDEFAULTADMINROLE is the Go binding that unpacks the parameters returned
+// from invoking the contract method with ID 0xa217fddf.
+//
+// Solidity: function DEFAULT_ADMIN_ROLE() view returns(bytes32)
+func (ticketNFT *TicketNFT) UnpackDEFAULTADMINROLE(data []byte) ([32]byte, error) {
+	out, err := ticketNFT.abi.Unpack("DEFAULT_ADMIN_ROLE", data)
+	if err != nil {
+		return *new([32]byte), err
+	}
+	out0 := *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
+	return out0, nil
+}
+
+// PackGATEROLE is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0xdf061368.  This method will panic if any
+// invalid/nil inputs are passed.
+//
+// Solidity: function GATE_ROLE() view returns(bytes32)
+func (ticketNFT *TicketNFT) PackGATEROLE() []byte {
+	enc, err := ticketNFT.abi.Pack("GATE_ROLE")
+	if err != nil {
+		panic(err)
+	}
+	return enc
+}
+
+// TryPackGATEROLE is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0xdf061368.  This method will return an error
+// if any inputs are invalid/nil.
+//
+// Solidity: function GATE_ROLE() view returns(bytes32)
+func (ticketNFT *TicketNFT) TryPackGATEROLE() ([]byte, error) {
+	return ticketNFT.abi.Pack("GATE_ROLE")
+}
+
+// UnpackGATEROLE is the Go binding that unpacks the parameters returned
+// from invoking the contract method with ID 0xdf061368.
+//
+// Solidity: function GATE_ROLE() view returns(bytes32)
+func (ticketNFT *TicketNFT) UnpackGATEROLE(data []byte) ([32]byte, error) {
+	out, err := ticketNFT.abi.Unpack("GATE_ROLE", data)
+	if err != nil {
+		return *new([32]byte), err
+	}
+	out0 := *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
+	return out0, nil
+}
+
+// PackMINTERROLE is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0xd5391393.  This method will panic if any
+// invalid/nil inputs are passed.
+//
+// Solidity: function MINTER_ROLE() view returns(bytes32)
+func (ticketNFT *TicketNFT) PackMINTERROLE() []byte {
+	enc, err := ticketNFT.abi.Pack("MINTER_ROLE")
+	if err != nil {
+		panic(err)
+	}
+	return enc
+}
+
+// TryPackMINTERROLE is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0xd5391393.  This method will return an error
+// if any inputs are invalid/nil.
+//
+// Solidity: function MINTER_ROLE() view returns(bytes32)
+func (ticketNFT *TicketNFT) TryPackMINTERROLE() ([]byte, error) {
+	return ticketNFT.abi.Pack("MINTER_ROLE")
+}
+
+// UnpackMINTERROLE is the Go binding that unpacks the parameters returned
+// from invoking the contract method with ID 0xd5391393.
+//
+// Solidity: function MINTER_ROLE() view returns(bytes32)
+func (ticketNFT *TicketNFT) UnpackMINTERROLE(data []byte) ([32]byte, error) {
+	out, err := ticketNFT.abi.Unpack("MINTER_ROLE", data)
+	if err != nil {
+		return *new([32]byte), err
+	}
+	out0 := *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
+	return out0, nil
+}
+
+// PackApprove is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0x095ea7b3.  This method will panic if any
+// invalid/nil inputs are passed.
+//
+// Solidity: function approve(address , uint256 ) pure returns()
+func (ticketNFT *TicketNFT) PackApprove(arg0 common.Address, arg1 *big.Int) []byte {
+	enc, err := ticketNFT.abi.Pack("approve", arg0, arg1)
+	if err != nil {
+		panic(err)
+	}
+	return enc
+}
+
+// TryPackApprove is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0x095ea7b3.  This method will return an error
+// if any inputs are invalid/nil.
+//
+// Solidity: function approve(address , uint256 ) pure returns()
+func (ticketNFT *TicketNFT) TryPackApprove(arg0 common.Address, arg1 *big.Int) ([]byte, error) {
+	return ticketNFT.abi.Pack("approve", arg0, arg1)
+}
+
+// PackBalanceOf is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0x70a08231.  This method will panic if any
+// invalid/nil inputs are passed.
+//
+// Solidity: function balanceOf(address owner) view returns(uint256)
+func (ticketNFT *TicketNFT) PackBalanceOf(owner common.Address) []byte {
+	enc, err := ticketNFT.abi.Pack("balanceOf", owner)
+	if err != nil {
+		panic(err)
+	}
+	return enc
+}
+
+// TryPackBalanceOf is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0x70a08231.  This method will return an error
+// if any inputs are invalid/nil.
+//
+// Solidity: function balanceOf(address owner) view returns(uint256)
+func (ticketNFT *TicketNFT) TryPackBalanceOf(owner common.Address) ([]byte, error) {
+	return ticketNFT.abi.Pack("balanceOf", owner)
+}
+
+// UnpackBalanceOf is the Go binding that unpacks the parameters returned
+// from invoking the contract method with ID 0x70a08231.
+//
+// Solidity: function balanceOf(address owner) view returns(uint256)
+func (ticketNFT *TicketNFT) UnpackBalanceOf(data []byte) (*big.Int, error) {
+	out, err := ticketNFT.abi.Unpack("balanceOf", data)
+	if err != nil {
+		return new(big.Int), err
+	}
+	out0 := abi.ConvertType(out[0], new(big.Int)).(*big.Int)
+	return out0, nil
+}
+
+// PackBuyResale is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0xa89d2d38.  This method will panic if any
+// invalid/nil inputs are passed.
+//
+// Solidity: function buyResale(uint256 tokenId, uint256 maxPrice) returns()
+func (ticketNFT *TicketNFT) PackBuyResale(tokenId *big.Int, maxPrice *big.Int) []byte {
+	enc, err := ticketNFT.abi.Pack("buyResale", tokenId, maxPrice)
+	if err != nil {
+		panic(err)
+	}
+	return enc
+}
+
+// TryPackBuyResale is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0xa89d2d38.  This method will return an error
+// if any inputs are invalid/nil.
+//
+// Solidity: function buyResale(uint256 tokenId, uint256 maxPrice) returns()
+func (ticketNFT *TicketNFT) TryPackBuyResale(tokenId *big.Int, maxPrice *big.Int) ([]byte, error) {
+	return ticketNFT.abi.Pack("buyResale", tokenId, maxPrice)
+}
+
+// PackCancelListing is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0x305a67a8.  This method will panic if any
+// invalid/nil inputs are passed.
+//
+// Solidity: function cancelListing(uint256 tokenId) returns()
+func (ticketNFT *TicketNFT) PackCancelListing(tokenId *big.Int) []byte {
+	enc, err := ticketNFT.abi.Pack("cancelListing", tokenId)
+	if err != nil {
+		panic(err)
+	}
+	return enc
+}
+
+// TryPackCancelListing is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0x305a67a8.  This method will return an error
+// if any inputs are invalid/nil.
+//
+// Solidity: function cancelListing(uint256 tokenId) returns()
+func (ticketNFT *TicketNFT) TryPackCancelListing(tokenId *big.Int) ([]byte, error) {
+	return ticketNFT.abi.Pack("cancelListing", tokenId)
+}
+
+// PackCheckIn is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0xe95a644f.  This method will panic if any
+// invalid/nil inputs are passed.
+//
+// Solidity: function checkIn(uint256 tokenId) returns()
+func (ticketNFT *TicketNFT) PackCheckIn(tokenId *big.Int) []byte {
+	enc, err := ticketNFT.abi.Pack("checkIn", tokenId)
+	if err != nil {
+		panic(err)
+	}
+	return enc
+}
+
+// TryPackCheckIn is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0xe95a644f.  This method will return an error
+// if any inputs are invalid/nil.
+//
+// Solidity: function checkIn(uint256 tokenId) returns()
+func (ticketNFT *TicketNFT) TryPackCheckIn(tokenId *big.Int) ([]byte, error) {
+	return ticketNFT.abi.Pack("checkIn", tokenId)
+}
+
+// PackEventStart is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0x202887e7.  This method will panic if any
+// invalid/nil inputs are passed.
+//
+// Solidity: function eventStart() view returns(uint64)
+func (ticketNFT *TicketNFT) PackEventStart() []byte {
+	enc, err := ticketNFT.abi.Pack("eventStart")
+	if err != nil {
+		panic(err)
+	}
+	return enc
+}
+
+// TryPackEventStart is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0x202887e7.  This method will return an error
+// if any inputs are invalid/nil.
+//
+// Solidity: function eventStart() view returns(uint64)
+func (ticketNFT *TicketNFT) TryPackEventStart() ([]byte, error) {
+	return ticketNFT.abi.Pack("eventStart")
+}
+
+// UnpackEventStart is the Go binding that unpacks the parameters returned
+// from invoking the contract method with ID 0x202887e7.
+//
+// Solidity: function eventStart() view returns(uint64)
+func (ticketNFT *TicketNFT) UnpackEventStart(data []byte) (uint64, error) {
+	out, err := ticketNFT.abi.Unpack("eventStart", data)
+	if err != nil {
+		return *new(uint64), err
+	}
+	out0 := *abi.ConvertType(out[0], new(uint64)).(*uint64)
+	return out0, nil
+}
+
+// PackGetApproved is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0x081812fc.  This method will panic if any
+// invalid/nil inputs are passed.
+//
+// Solidity: function getApproved(uint256 tokenId) view returns(address)
+func (ticketNFT *TicketNFT) PackGetApproved(tokenId *big.Int) []byte {
+	enc, err := ticketNFT.abi.Pack("getApproved", tokenId)
+	if err != nil {
+		panic(err)
+	}
+	return enc
+}
+
+// TryPackGetApproved is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0x081812fc.  This method will return an error
+// if any inputs are invalid/nil.
+//
+// Solidity: function getApproved(uint256 tokenId) view returns(address)
+func (ticketNFT *TicketNFT) TryPackGetApproved(tokenId *big.Int) ([]byte, error) {
+	return ticketNFT.abi.Pack("getApproved", tokenId)
+}
+
+// UnpackGetApproved is the Go binding that unpacks the parameters returned
+// from invoking the contract method with ID 0x081812fc.
+//
+// Solidity: function getApproved(uint256 tokenId) view returns(address)
+func (ticketNFT *TicketNFT) UnpackGetApproved(data []byte) (common.Address, error) {
+	out, err := ticketNFT.abi.Unpack("getApproved", data)
+	if err != nil {
+		return *new(common.Address), err
+	}
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+	return out0, nil
+}
+
+// PackGetRoleAdmin is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0x248a9ca3.  This method will panic if any
+// invalid/nil inputs are passed.
+//
+// Solidity: function getRoleAdmin(bytes32 role) view returns(bytes32)
+func (ticketNFT *TicketNFT) PackGetRoleAdmin(role [32]byte) []byte {
+	enc, err := ticketNFT.abi.Pack("getRoleAdmin", role)
+	if err != nil {
+		panic(err)
+	}
+	return enc
+}
+
+// TryPackGetRoleAdmin is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0x248a9ca3.  This method will return an error
+// if any inputs are invalid/nil.
+//
+// Solidity: function getRoleAdmin(bytes32 role) view returns(bytes32)
+func (ticketNFT *TicketNFT) TryPackGetRoleAdmin(role [32]byte) ([]byte, error) {
+	return ticketNFT.abi.Pack("getRoleAdmin", role)
+}
+
+// UnpackGetRoleAdmin is the Go binding that unpacks the parameters returned
+// from invoking the contract method with ID 0x248a9ca3.
+//
+// Solidity: function getRoleAdmin(bytes32 role) view returns(bytes32)
+func (ticketNFT *TicketNFT) UnpackGetRoleAdmin(data []byte) ([32]byte, error) {
+	out, err := ticketNFT.abi.Unpack("getRoleAdmin", data)
+	if err != nil {
+		return *new([32]byte), err
+	}
+	out0 := *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
+	return out0, nil
+}
+
+// PackGrantRole is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0x2f2ff15d.  This method will panic if any
+// invalid/nil inputs are passed.
+//
+// Solidity: function grantRole(bytes32 role, address account) returns()
+func (ticketNFT *TicketNFT) PackGrantRole(role [32]byte, account common.Address) []byte {
+	enc, err := ticketNFT.abi.Pack("grantRole", role, account)
+	if err != nil {
+		panic(err)
+	}
+	return enc
+}
+
+// TryPackGrantRole is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0x2f2ff15d.  This method will return an error
+// if any inputs are invalid/nil.
+//
+// Solidity: function grantRole(bytes32 role, address account) returns()
+func (ticketNFT *TicketNFT) TryPackGrantRole(role [32]byte, account common.Address) ([]byte, error) {
+	return ticketNFT.abi.Pack("grantRole", role, account)
+}
+
+// PackHasRole is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0x91d14854.  This method will panic if any
+// invalid/nil inputs are passed.
+//
+// Solidity: function hasRole(bytes32 role, address account) view returns(bool)
+func (ticketNFT *TicketNFT) PackHasRole(role [32]byte, account common.Address) []byte {
+	enc, err := ticketNFT.abi.Pack("hasRole", role, account)
+	if err != nil {
+		panic(err)
+	}
+	return enc
+}
+
+// TryPackHasRole is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0x91d14854.  This method will return an error
+// if any inputs are invalid/nil.
+//
+// Solidity: function hasRole(bytes32 role, address account) view returns(bool)
+func (ticketNFT *TicketNFT) TryPackHasRole(role [32]byte, account common.Address) ([]byte, error) {
+	return ticketNFT.abi.Pack("hasRole", role, account)
+}
+
+// UnpackHasRole is the Go binding that unpacks the parameters returned
+// from invoking the contract method with ID 0x91d14854.
+//
+// Solidity: function hasRole(bytes32 role, address account) view returns(bool)
+func (ticketNFT *TicketNFT) UnpackHasRole(data []byte) (bool, error) {
+	out, err := ticketNFT.abi.Unpack("hasRole", data)
+	if err != nil {
+		return *new(bool), err
+	}
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+	return out0, nil
+}
+
+// PackIsApprovedForAll is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0xe985e9c5.  This method will panic if any
+// invalid/nil inputs are passed.
+//
+// Solidity: function isApprovedForAll(address owner, address operator) view returns(bool)
+func (ticketNFT *TicketNFT) PackIsApprovedForAll(owner common.Address, operator common.Address) []byte {
+	enc, err := ticketNFT.abi.Pack("isApprovedForAll", owner, operator)
+	if err != nil {
+		panic(err)
+	}
+	return enc
+}
+
+// TryPackIsApprovedForAll is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0xe985e9c5.  This method will return an error
+// if any inputs are invalid/nil.
+//
+// Solidity: function isApprovedForAll(address owner, address operator) view returns(bool)
+func (ticketNFT *TicketNFT) TryPackIsApprovedForAll(owner common.Address, operator common.Address) ([]byte, error) {
+	return ticketNFT.abi.Pack("isApprovedForAll", owner, operator)
+}
+
+// UnpackIsApprovedForAll is the Go binding that unpacks the parameters returned
+// from invoking the contract method with ID 0xe985e9c5.
+//
+// Solidity: function isApprovedForAll(address owner, address operator) view returns(bool)
+func (ticketNFT *TicketNFT) UnpackIsApprovedForAll(data []byte) (bool, error) {
+	out, err := ticketNFT.abi.Unpack("isApprovedForAll", data)
+	if err != nil {
+		return *new(bool), err
+	}
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+	return out0, nil
+}
+
+// PackListForResale is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0x1f7d863c.  This method will panic if any
+// invalid/nil inputs are passed.
+//
+// Solidity: function listForResale(uint256 tokenId, uint256 price) returns()
+func (ticketNFT *TicketNFT) PackListForResale(tokenId *big.Int, price *big.Int) []byte {
+	enc, err := ticketNFT.abi.Pack("listForResale", tokenId, price)
+	if err != nil {
+		panic(err)
+	}
+	return enc
+}
+
+// TryPackListForResale is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0x1f7d863c.  This method will return an error
+// if any inputs are invalid/nil.
+//
+// Solidity: function listForResale(uint256 tokenId, uint256 price) returns()
+func (ticketNFT *TicketNFT) TryPackListForResale(tokenId *big.Int, price *big.Int) ([]byte, error) {
+	return ticketNFT.abi.Pack("listForResale", tokenId, price)
+}
+
+// PackMaxResaleBps is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0x923aee8e.  This method will panic if any
+// invalid/nil inputs are passed.
+//
+// Solidity: function maxResaleBps() view returns(uint32)
+func (ticketNFT *TicketNFT) PackMaxResaleBps() []byte {
+	enc, err := ticketNFT.abi.Pack("maxResaleBps")
+	if err != nil {
+		panic(err)
+	}
+	return enc
+}
+
+// TryPackMaxResaleBps is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0x923aee8e.  This method will return an error
+// if any inputs are invalid/nil.
+//
+// Solidity: function maxResaleBps() view returns(uint32)
+func (ticketNFT *TicketNFT) TryPackMaxResaleBps() ([]byte, error) {
+	return ticketNFT.abi.Pack("maxResaleBps")
+}
+
+// UnpackMaxResaleBps is the Go binding that unpacks the parameters returned
+// from invoking the contract method with ID 0x923aee8e.
+//
+// Solidity: function maxResaleBps() view returns(uint32)
+func (ticketNFT *TicketNFT) UnpackMaxResaleBps(data []byte) (uint32, error) {
+	out, err := ticketNFT.abi.Unpack("maxResaleBps", data)
+	if err != nil {
+		return *new(uint32), err
+	}
+	out0 := *abi.ConvertType(out[0], new(uint32)).(*uint32)
+	return out0, nil
+}
+
+// PackMaxSupply is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0xd5abeb01.  This method will panic if any
+// invalid/nil inputs are passed.
+//
+// Solidity: function maxSupply() view returns(uint32)
+func (ticketNFT *TicketNFT) PackMaxSupply() []byte {
+	enc, err := ticketNFT.abi.Pack("maxSupply")
+	if err != nil {
+		panic(err)
+	}
+	return enc
+}
+
+// TryPackMaxSupply is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0xd5abeb01.  This method will return an error
+// if any inputs are invalid/nil.
+//
+// Solidity: function maxSupply() view returns(uint32)
+func (ticketNFT *TicketNFT) TryPackMaxSupply() ([]byte, error) {
+	return ticketNFT.abi.Pack("maxSupply")
+}
+
+// UnpackMaxSupply is the Go binding that unpacks the parameters returned
+// from invoking the contract method with ID 0xd5abeb01.
+//
+// Solidity: function maxSupply() view returns(uint32)
+func (ticketNFT *TicketNFT) UnpackMaxSupply(data []byte) (uint32, error) {
+	out, err := ticketNFT.abi.Unpack("maxSupply", data)
+	if err != nil {
+		return *new(uint32), err
+	}
+	out0 := *abi.ConvertType(out[0], new(uint32)).(*uint32)
+	return out0, nil
+}
+
+// PackMintTicket is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0x59e1c251.  This method will panic if any
+// invalid/nil inputs are passed.
+//
+// Solidity: function mintTicket(address to, uint256 tokenId, uint256 faceValue, bytes32 recordHash) returns()
+func (ticketNFT *TicketNFT) PackMintTicket(to common.Address, tokenId *big.Int, faceValue *big.Int, recordHash [32]byte) []byte {
+	enc, err := ticketNFT.abi.Pack("mintTicket", to, tokenId, faceValue, recordHash)
+	if err != nil {
+		panic(err)
+	}
+	return enc
+}
+
+// TryPackMintTicket is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0x59e1c251.  This method will return an error
+// if any inputs are invalid/nil.
+//
+// Solidity: function mintTicket(address to, uint256 tokenId, uint256 faceValue, bytes32 recordHash) returns()
+func (ticketNFT *TicketNFT) TryPackMintTicket(to common.Address, tokenId *big.Int, faceValue *big.Int, recordHash [32]byte) ([]byte, error) {
+	return ticketNFT.abi.Pack("mintTicket", to, tokenId, faceValue, recordHash)
+}
+
+// PackMintedCount is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0xcf721b15.  This method will panic if any
+// invalid/nil inputs are passed.
+//
+// Solidity: function mintedCount() view returns(uint32)
+func (ticketNFT *TicketNFT) PackMintedCount() []byte {
+	enc, err := ticketNFT.abi.Pack("mintedCount")
+	if err != nil {
+		panic(err)
+	}
+	return enc
+}
+
+// TryPackMintedCount is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0xcf721b15.  This method will return an error
+// if any inputs are invalid/nil.
+//
+// Solidity: function mintedCount() view returns(uint32)
+func (ticketNFT *TicketNFT) TryPackMintedCount() ([]byte, error) {
+	return ticketNFT.abi.Pack("mintedCount")
+}
+
+// UnpackMintedCount is the Go binding that unpacks the parameters returned
+// from invoking the contract method with ID 0xcf721b15.
+//
+// Solidity: function mintedCount() view returns(uint32)
+func (ticketNFT *TicketNFT) UnpackMintedCount(data []byte) (uint32, error) {
+	out, err := ticketNFT.abi.Unpack("mintedCount", data)
+	if err != nil {
+		return *new(uint32), err
+	}
+	out0 := *abi.ConvertType(out[0], new(uint32)).(*uint32)
+	return out0, nil
+}
+
+// PackName is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0x06fdde03.  This method will panic if any
+// invalid/nil inputs are passed.
+//
+// Solidity: function name() view returns(string)
+func (ticketNFT *TicketNFT) PackName() []byte {
+	enc, err := ticketNFT.abi.Pack("name")
+	if err != nil {
+		panic(err)
+	}
+	return enc
+}
+
+// TryPackName is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0x06fdde03.  This method will return an error
+// if any inputs are invalid/nil.
+//
+// Solidity: function name() view returns(string)
+func (ticketNFT *TicketNFT) TryPackName() ([]byte, error) {
+	return ticketNFT.abi.Pack("name")
+}
+
+// UnpackName is the Go binding that unpacks the parameters returned
+// from invoking the contract method with ID 0x06fdde03.
+//
+// Solidity: function name() view returns(string)
+func (ticketNFT *TicketNFT) UnpackName(data []byte) (string, error) {
+	out, err := ticketNFT.abi.Unpack("name", data)
+	if err != nil {
+		return *new(string), err
+	}
+	out0 := *abi.ConvertType(out[0], new(string)).(*string)
+	return out0, nil
+}
+
+// PackOwnerOf is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0x6352211e.  This method will panic if any
+// invalid/nil inputs are passed.
+//
+// Solidity: function ownerOf(uint256 tokenId) view returns(address)
+func (ticketNFT *TicketNFT) PackOwnerOf(tokenId *big.Int) []byte {
+	enc, err := ticketNFT.abi.Pack("ownerOf", tokenId)
+	if err != nil {
+		panic(err)
+	}
+	return enc
+}
+
+// TryPackOwnerOf is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0x6352211e.  This method will return an error
+// if any inputs are invalid/nil.
+//
+// Solidity: function ownerOf(uint256 tokenId) view returns(address)
+func (ticketNFT *TicketNFT) TryPackOwnerOf(tokenId *big.Int) ([]byte, error) {
+	return ticketNFT.abi.Pack("ownerOf", tokenId)
+}
+
+// UnpackOwnerOf is the Go binding that unpacks the parameters returned
+// from invoking the contract method with ID 0x6352211e.
+//
+// Solidity: function ownerOf(uint256 tokenId) view returns(address)
+func (ticketNFT *TicketNFT) UnpackOwnerOf(data []byte) (common.Address, error) {
+	out, err := ticketNFT.abi.Unpack("ownerOf", data)
+	if err != nil {
+		return *new(common.Address), err
+	}
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+	return out0, nil
+}
+
+// PackRenounceRole is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0x36568abe.  This method will panic if any
+// invalid/nil inputs are passed.
+//
+// Solidity: function renounceRole(bytes32 role, address callerConfirmation) returns()
+func (ticketNFT *TicketNFT) PackRenounceRole(role [32]byte, callerConfirmation common.Address) []byte {
+	enc, err := ticketNFT.abi.Pack("renounceRole", role, callerConfirmation)
+	if err != nil {
+		panic(err)
+	}
+	return enc
+}
+
+// TryPackRenounceRole is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0x36568abe.  This method will return an error
+// if any inputs are invalid/nil.
+//
+// Solidity: function renounceRole(bytes32 role, address callerConfirmation) returns()
+func (ticketNFT *TicketNFT) TryPackRenounceRole(role [32]byte, callerConfirmation common.Address) ([]byte, error) {
+	return ticketNFT.abi.Pack("renounceRole", role, callerConfirmation)
+}
+
+// PackResaleCap is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0x0e0caabf.  This method will panic if any
+// invalid/nil inputs are passed.
+//
+// Solidity: function resaleCap(uint256 tokenId) view returns(uint256)
+func (ticketNFT *TicketNFT) PackResaleCap(tokenId *big.Int) []byte {
+	enc, err := ticketNFT.abi.Pack("resaleCap", tokenId)
+	if err != nil {
+		panic(err)
+	}
+	return enc
+}
+
+// TryPackResaleCap is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0x0e0caabf.  This method will return an error
+// if any inputs are invalid/nil.
+//
+// Solidity: function resaleCap(uint256 tokenId) view returns(uint256)
+func (ticketNFT *TicketNFT) TryPackResaleCap(tokenId *big.Int) ([]byte, error) {
+	return ticketNFT.abi.Pack("resaleCap", tokenId)
+}
+
+// UnpackResaleCap is the Go binding that unpacks the parameters returned
+// from invoking the contract method with ID 0x0e0caabf.
+//
+// Solidity: function resaleCap(uint256 tokenId) view returns(uint256)
+func (ticketNFT *TicketNFT) UnpackResaleCap(data []byte) (*big.Int, error) {
+	out, err := ticketNFT.abi.Unpack("resaleCap", data)
+	if err != nil {
+		return new(big.Int), err
+	}
+	out0 := abi.ConvertType(out[0], new(big.Int)).(*big.Int)
+	return out0, nil
+}
+
+// PackRevokeRole is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0xd547741f.  This method will panic if any
+// invalid/nil inputs are passed.
+//
+// Solidity: function revokeRole(bytes32 role, address account) returns()
+func (ticketNFT *TicketNFT) PackRevokeRole(role [32]byte, account common.Address) []byte {
+	enc, err := ticketNFT.abi.Pack("revokeRole", role, account)
+	if err != nil {
+		panic(err)
+	}
+	return enc
+}
+
+// TryPackRevokeRole is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0xd547741f.  This method will return an error
+// if any inputs are invalid/nil.
+//
+// Solidity: function revokeRole(bytes32 role, address account) returns()
+func (ticketNFT *TicketNFT) TryPackRevokeRole(role [32]byte, account common.Address) ([]byte, error) {
+	return ticketNFT.abi.Pack("revokeRole", role, account)
+}
+
+// PackSafeTransferFrom is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0x42842e0e.  This method will panic if any
+// invalid/nil inputs are passed.
+//
+// Solidity: function safeTransferFrom(address from, address to, uint256 tokenId) returns()
+func (ticketNFT *TicketNFT) PackSafeTransferFrom(from common.Address, to common.Address, tokenId *big.Int) []byte {
+	enc, err := ticketNFT.abi.Pack("safeTransferFrom", from, to, tokenId)
+	if err != nil {
+		panic(err)
+	}
+	return enc
+}
+
+// TryPackSafeTransferFrom is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0x42842e0e.  This method will return an error
+// if any inputs are invalid/nil.
+//
+// Solidity: function safeTransferFrom(address from, address to, uint256 tokenId) returns()
+func (ticketNFT *TicketNFT) TryPackSafeTransferFrom(from common.Address, to common.Address, tokenId *big.Int) ([]byte, error) {
+	return ticketNFT.abi.Pack("safeTransferFrom", from, to, tokenId)
+}
+
+// PackSafeTransferFrom0 is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0xb88d4fde.  This method will panic if any
+// invalid/nil inputs are passed.
+//
+// Solidity: function safeTransferFrom(address , address , uint256 , bytes ) pure returns()
+func (ticketNFT *TicketNFT) PackSafeTransferFrom0(arg0 common.Address, arg1 common.Address, arg2 *big.Int, arg3 []byte) []byte {
+	enc, err := ticketNFT.abi.Pack("safeTransferFrom0", arg0, arg1, arg2, arg3)
+	if err != nil {
+		panic(err)
+	}
+	return enc
+}
+
+// TryPackSafeTransferFrom0 is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0xb88d4fde.  This method will return an error
+// if any inputs are invalid/nil.
+//
+// Solidity: function safeTransferFrom(address , address , uint256 , bytes ) pure returns()
+func (ticketNFT *TicketNFT) TryPackSafeTransferFrom0(arg0 common.Address, arg1 common.Address, arg2 *big.Int, arg3 []byte) ([]byte, error) {
+	return ticketNFT.abi.Pack("safeTransferFrom0", arg0, arg1, arg2, arg3)
+}
+
+// PackSetApprovalForAll is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0xa22cb465.  This method will panic if any
+// invalid/nil inputs are passed.
+//
+// Solidity: function setApprovalForAll(address , bool ) pure returns()
+func (ticketNFT *TicketNFT) PackSetApprovalForAll(arg0 common.Address, arg1 bool) []byte {
+	enc, err := ticketNFT.abi.Pack("setApprovalForAll", arg0, arg1)
+	if err != nil {
+		panic(err)
+	}
+	return enc
+}
+
+// TryPackSetApprovalForAll is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0xa22cb465.  This method will return an error
+// if any inputs are invalid/nil.
+//
+// Solidity: function setApprovalForAll(address , bool ) pure returns()
+func (ticketNFT *TicketNFT) TryPackSetApprovalForAll(arg0 common.Address, arg1 bool) ([]byte, error) {
+	return ticketNFT.abi.Pack("setApprovalForAll", arg0, arg1)
+}
+
+// PackSupportsInterface is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0x01ffc9a7.  This method will panic if any
+// invalid/nil inputs are passed.
+//
+// Solidity: function supportsInterface(bytes4 interfaceId) view returns(bool)
+func (ticketNFT *TicketNFT) PackSupportsInterface(interfaceId [4]byte) []byte {
+	enc, err := ticketNFT.abi.Pack("supportsInterface", interfaceId)
+	if err != nil {
+		panic(err)
+	}
+	return enc
+}
+
+// TryPackSupportsInterface is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0x01ffc9a7.  This method will return an error
+// if any inputs are invalid/nil.
+//
+// Solidity: function supportsInterface(bytes4 interfaceId) view returns(bool)
+func (ticketNFT *TicketNFT) TryPackSupportsInterface(interfaceId [4]byte) ([]byte, error) {
+	return ticketNFT.abi.Pack("supportsInterface", interfaceId)
+}
+
+// UnpackSupportsInterface is the Go binding that unpacks the parameters returned
+// from invoking the contract method with ID 0x01ffc9a7.
+//
+// Solidity: function supportsInterface(bytes4 interfaceId) view returns(bool)
+func (ticketNFT *TicketNFT) UnpackSupportsInterface(data []byte) (bool, error) {
+	out, err := ticketNFT.abi.Unpack("supportsInterface", data)
+	if err != nil {
+		return *new(bool), err
+	}
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+	return out0, nil
+}
+
+// PackSymbol is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0x95d89b41.  This method will panic if any
+// invalid/nil inputs are passed.
+//
+// Solidity: function symbol() view returns(string)
+func (ticketNFT *TicketNFT) PackSymbol() []byte {
+	enc, err := ticketNFT.abi.Pack("symbol")
+	if err != nil {
+		panic(err)
+	}
+	return enc
+}
+
+// TryPackSymbol is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0x95d89b41.  This method will return an error
+// if any inputs are invalid/nil.
+//
+// Solidity: function symbol() view returns(string)
+func (ticketNFT *TicketNFT) TryPackSymbol() ([]byte, error) {
+	return ticketNFT.abi.Pack("symbol")
+}
+
+// UnpackSymbol is the Go binding that unpacks the parameters returned
+// from invoking the contract method with ID 0x95d89b41.
+//
+// Solidity: function symbol() view returns(string)
+func (ticketNFT *TicketNFT) UnpackSymbol(data []byte) (string, error) {
+	out, err := ticketNFT.abi.Unpack("symbol", data)
+	if err != nil {
+		return *new(string), err
+	}
+	out0 := *abi.ConvertType(out[0], new(string)).(*string)
+	return out0, nil
+}
+
+// PackTicketInfo is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0xfa713083.  This method will panic if any
+// invalid/nil inputs are passed.
+//
+// Solidity: function ticketInfo(uint256 tokenId) view returns(uint256 faceValue, bytes32 recordHash, uint256 listingPrice)
+func (ticketNFT *TicketNFT) PackTicketInfo(tokenId *big.Int) []byte {
+	enc, err := ticketNFT.abi.Pack("ticketInfo", tokenId)
+	if err != nil {
+		panic(err)
+	}
+	return enc
+}
+
+// TryPackTicketInfo is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0xfa713083.  This method will return an error
+// if any inputs are invalid/nil.
+//
+// Solidity: function ticketInfo(uint256 tokenId) view returns(uint256 faceValue, bytes32 recordHash, uint256 listingPrice)
+func (ticketNFT *TicketNFT) TryPackTicketInfo(tokenId *big.Int) ([]byte, error) {
+	return ticketNFT.abi.Pack("ticketInfo", tokenId)
+}
+
+// TicketInfoOutput serves as a container for the return parameters of contract
+// method TicketInfo.
+type TicketInfoOutput struct {
+	FaceValue    *big.Int
+	RecordHash   [32]byte
+	ListingPrice *big.Int
+}
+
+// UnpackTicketInfo is the Go binding that unpacks the parameters returned
+// from invoking the contract method with ID 0xfa713083.
+//
+// Solidity: function ticketInfo(uint256 tokenId) view returns(uint256 faceValue, bytes32 recordHash, uint256 listingPrice)
+func (ticketNFT *TicketNFT) UnpackTicketInfo(data []byte) (TicketInfoOutput, error) {
+	out, err := ticketNFT.abi.Unpack("ticketInfo", data)
+	outstruct := new(TicketInfoOutput)
+	if err != nil {
+		return *outstruct, err
+	}
+	outstruct.FaceValue = abi.ConvertType(out[0], new(big.Int)).(*big.Int)
+	outstruct.RecordHash = *abi.ConvertType(out[1], new([32]byte)).(*[32]byte)
+	outstruct.ListingPrice = abi.ConvertType(out[2], new(big.Int)).(*big.Int)
+	return *outstruct, nil
+}
+
+// PackTokenURI is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0xc87b56dd.  This method will panic if any
+// invalid/nil inputs are passed.
+//
+// Solidity: function tokenURI(uint256 tokenId) view returns(string)
+func (ticketNFT *TicketNFT) PackTokenURI(tokenId *big.Int) []byte {
+	enc, err := ticketNFT.abi.Pack("tokenURI", tokenId)
+	if err != nil {
+		panic(err)
+	}
+	return enc
+}
+
+// TryPackTokenURI is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0xc87b56dd.  This method will return an error
+// if any inputs are invalid/nil.
+//
+// Solidity: function tokenURI(uint256 tokenId) view returns(string)
+func (ticketNFT *TicketNFT) TryPackTokenURI(tokenId *big.Int) ([]byte, error) {
+	return ticketNFT.abi.Pack("tokenURI", tokenId)
+}
+
+// UnpackTokenURI is the Go binding that unpacks the parameters returned
+// from invoking the contract method with ID 0xc87b56dd.
+//
+// Solidity: function tokenURI(uint256 tokenId) view returns(string)
+func (ticketNFT *TicketNFT) UnpackTokenURI(data []byte) (string, error) {
+	out, err := ticketNFT.abi.Unpack("tokenURI", data)
+	if err != nil {
+		return *new(string), err
+	}
+	out0 := *abi.ConvertType(out[0], new(string)).(*string)
+	return out0, nil
+}
+
+// PackTransferFrom is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0x23b872dd.  This method will panic if any
+// invalid/nil inputs are passed.
+//
+// Solidity: function transferFrom(address , address , uint256 ) pure returns()
+func (ticketNFT *TicketNFT) PackTransferFrom(arg0 common.Address, arg1 common.Address, arg2 *big.Int) []byte {
+	enc, err := ticketNFT.abi.Pack("transferFrom", arg0, arg1, arg2)
+	if err != nil {
+		panic(err)
+	}
+	return enc
+}
+
+// TryPackTransferFrom is the Go binding used to pack the parameters required for calling
+// the contract method with ID 0x23b872dd.  This method will return an error
+// if any inputs are invalid/nil.
+//
+// Solidity: function transferFrom(address , address , uint256 ) pure returns()
+func (ticketNFT *TicketNFT) TryPackTransferFrom(arg0 common.Address, arg1 common.Address, arg2 *big.Int) ([]byte, error) {
+	return ticketNFT.abi.Pack("transferFrom", arg0, arg1, arg2)
+}
+
+// TicketNFTApproval represents a Approval event raised by the TicketNFT contract.
+type TicketNFTApproval struct {
+	Owner    common.Address
+	Approved common.Address
+	TokenId  *big.Int
+	Raw      *types.Log // Blockchain specific contextual infos
+}
+
+const TicketNFTApprovalEventName = "Approval"
+
+// ContractEventName returns the user-defined event name.
+func (TicketNFTApproval) ContractEventName() string {
+	return TicketNFTApprovalEventName
+}
+
+// UnpackApprovalEvent is the Go binding that unpacks the event data emitted
+// by contract.
+//
+// Solidity: event Approval(address indexed owner, address indexed approved, uint256 indexed tokenId)
+func (ticketNFT *TicketNFT) UnpackApprovalEvent(log *types.Log) (*TicketNFTApproval, error) {
+	event := "Approval"
+	if len(log.Topics) == 0 {
+		return nil, bind.ErrNoEventSignature
+	}
+	if log.Topics[0] != ticketNFT.abi.Events[event].ID {
+		return nil, bind.ErrEventSignatureMismatch
+	}
+	out := new(TicketNFTApproval)
+	if len(log.Data) > 0 {
+		if err := ticketNFT.abi.UnpackIntoInterface(out, event, log.Data); err != nil {
+			return nil, err
+		}
+	}
+	var indexed abi.Arguments
+	for _, arg := range ticketNFT.abi.Events[event].Inputs {
+		if arg.Indexed {
+			indexed = append(indexed, arg)
+		}
+	}
+	if err := abi.ParseTopics(out, indexed, log.Topics[1:]); err != nil {
+		return nil, err
+	}
+	out.Raw = log
+	return out, nil
+}
+
+// TicketNFTApprovalForAll represents a ApprovalForAll event raised by the TicketNFT contract.
+type TicketNFTApprovalForAll struct {
+	Owner    common.Address
+	Operator common.Address
+	Approved bool
+	Raw      *types.Log // Blockchain specific contextual infos
+}
+
+const TicketNFTApprovalForAllEventName = "ApprovalForAll"
+
+// ContractEventName returns the user-defined event name.
+func (TicketNFTApprovalForAll) ContractEventName() string {
+	return TicketNFTApprovalForAllEventName
+}
+
+// UnpackApprovalForAllEvent is the Go binding that unpacks the event data emitted
+// by contract.
+//
+// Solidity: event ApprovalForAll(address indexed owner, address indexed operator, bool approved)
+func (ticketNFT *TicketNFT) UnpackApprovalForAllEvent(log *types.Log) (*TicketNFTApprovalForAll, error) {
+	event := "ApprovalForAll"
+	if len(log.Topics) == 0 {
+		return nil, bind.ErrNoEventSignature
+	}
+	if log.Topics[0] != ticketNFT.abi.Events[event].ID {
+		return nil, bind.ErrEventSignatureMismatch
+	}
+	out := new(TicketNFTApprovalForAll)
+	if len(log.Data) > 0 {
+		if err := ticketNFT.abi.UnpackIntoInterface(out, event, log.Data); err != nil {
+			return nil, err
+		}
+	}
+	var indexed abi.Arguments
+	for _, arg := range ticketNFT.abi.Events[event].Inputs {
+		if arg.Indexed {
+			indexed = append(indexed, arg)
+		}
+	}
+	if err := abi.ParseTopics(out, indexed, log.Topics[1:]); err != nil {
+		return nil, err
+	}
+	out.Raw = log
+	return out, nil
+}
+
+// TicketNFTCheckedIn represents a CheckedIn event raised by the TicketNFT contract.
+type TicketNFTCheckedIn struct {
+	TokenId *big.Int
+	Holder  common.Address
+	Raw     *types.Log // Blockchain specific contextual infos
+}
+
+const TicketNFTCheckedInEventName = "CheckedIn"
+
+// ContractEventName returns the user-defined event name.
+func (TicketNFTCheckedIn) ContractEventName() string {
+	return TicketNFTCheckedInEventName
+}
+
+// UnpackCheckedInEvent is the Go binding that unpacks the event data emitted
+// by contract.
+//
+// Solidity: event CheckedIn(uint256 indexed tokenId, address indexed holder)
+func (ticketNFT *TicketNFT) UnpackCheckedInEvent(log *types.Log) (*TicketNFTCheckedIn, error) {
+	event := "CheckedIn"
+	if len(log.Topics) == 0 {
+		return nil, bind.ErrNoEventSignature
+	}
+	if log.Topics[0] != ticketNFT.abi.Events[event].ID {
+		return nil, bind.ErrEventSignatureMismatch
+	}
+	out := new(TicketNFTCheckedIn)
+	if len(log.Data) > 0 {
+		if err := ticketNFT.abi.UnpackIntoInterface(out, event, log.Data); err != nil {
+			return nil, err
+		}
+	}
+	var indexed abi.Arguments
+	for _, arg := range ticketNFT.abi.Events[event].Inputs {
+		if arg.Indexed {
+			indexed = append(indexed, arg)
+		}
+	}
+	if err := abi.ParseTopics(out, indexed, log.Topics[1:]); err != nil {
+		return nil, err
+	}
+	out.Raw = log
+	return out, nil
+}
+
+// TicketNFTListingCancelled represents a ListingCancelled event raised by the TicketNFT contract.
+type TicketNFTListingCancelled struct {
+	TokenId *big.Int
+	Raw     *types.Log // Blockchain specific contextual infos
+}
+
+const TicketNFTListingCancelledEventName = "ListingCancelled"
+
+// ContractEventName returns the user-defined event name.
+func (TicketNFTListingCancelled) ContractEventName() string {
+	return TicketNFTListingCancelledEventName
+}
+
+// UnpackListingCancelledEvent is the Go binding that unpacks the event data emitted
+// by contract.
+//
+// Solidity: event ListingCancelled(uint256 indexed tokenId)
+func (ticketNFT *TicketNFT) UnpackListingCancelledEvent(log *types.Log) (*TicketNFTListingCancelled, error) {
+	event := "ListingCancelled"
+	if len(log.Topics) == 0 {
+		return nil, bind.ErrNoEventSignature
+	}
+	if log.Topics[0] != ticketNFT.abi.Events[event].ID {
+		return nil, bind.ErrEventSignatureMismatch
+	}
+	out := new(TicketNFTListingCancelled)
+	if len(log.Data) > 0 {
+		if err := ticketNFT.abi.UnpackIntoInterface(out, event, log.Data); err != nil {
+			return nil, err
+		}
+	}
+	var indexed abi.Arguments
+	for _, arg := range ticketNFT.abi.Events[event].Inputs {
+		if arg.Indexed {
+			indexed = append(indexed, arg)
+		}
+	}
+	if err := abi.ParseTopics(out, indexed, log.Topics[1:]); err != nil {
+		return nil, err
+	}
+	out.Raw = log
+	return out, nil
+}
+
+// TicketNFTRoleAdminChanged represents a RoleAdminChanged event raised by the TicketNFT contract.
+type TicketNFTRoleAdminChanged struct {
+	Role              [32]byte
+	PreviousAdminRole [32]byte
+	NewAdminRole      [32]byte
+	Raw               *types.Log // Blockchain specific contextual infos
+}
+
+const TicketNFTRoleAdminChangedEventName = "RoleAdminChanged"
+
+// ContractEventName returns the user-defined event name.
+func (TicketNFTRoleAdminChanged) ContractEventName() string {
+	return TicketNFTRoleAdminChangedEventName
+}
+
+// UnpackRoleAdminChangedEvent is the Go binding that unpacks the event data emitted
+// by contract.
+//
+// Solidity: event RoleAdminChanged(bytes32 indexed role, bytes32 indexed previousAdminRole, bytes32 indexed newAdminRole)
+func (ticketNFT *TicketNFT) UnpackRoleAdminChangedEvent(log *types.Log) (*TicketNFTRoleAdminChanged, error) {
+	event := "RoleAdminChanged"
+	if len(log.Topics) == 0 {
+		return nil, bind.ErrNoEventSignature
+	}
+	if log.Topics[0] != ticketNFT.abi.Events[event].ID {
+		return nil, bind.ErrEventSignatureMismatch
+	}
+	out := new(TicketNFTRoleAdminChanged)
+	if len(log.Data) > 0 {
+		if err := ticketNFT.abi.UnpackIntoInterface(out, event, log.Data); err != nil {
+			return nil, err
+		}
+	}
+	var indexed abi.Arguments
+	for _, arg := range ticketNFT.abi.Events[event].Inputs {
+		if arg.Indexed {
+			indexed = append(indexed, arg)
+		}
+	}
+	if err := abi.ParseTopics(out, indexed, log.Topics[1:]); err != nil {
+		return nil, err
+	}
+	out.Raw = log
+	return out, nil
+}
+
+// TicketNFTRoleGranted represents a RoleGranted event raised by the TicketNFT contract.
+type TicketNFTRoleGranted struct {
+	Role    [32]byte
+	Account common.Address
+	Sender  common.Address
+	Raw     *types.Log // Blockchain specific contextual infos
+}
+
+const TicketNFTRoleGrantedEventName = "RoleGranted"
+
+// ContractEventName returns the user-defined event name.
+func (TicketNFTRoleGranted) ContractEventName() string {
+	return TicketNFTRoleGrantedEventName
+}
+
+// UnpackRoleGrantedEvent is the Go binding that unpacks the event data emitted
+// by contract.
+//
+// Solidity: event RoleGranted(bytes32 indexed role, address indexed account, address indexed sender)
+func (ticketNFT *TicketNFT) UnpackRoleGrantedEvent(log *types.Log) (*TicketNFTRoleGranted, error) {
+	event := "RoleGranted"
+	if len(log.Topics) == 0 {
+		return nil, bind.ErrNoEventSignature
+	}
+	if log.Topics[0] != ticketNFT.abi.Events[event].ID {
+		return nil, bind.ErrEventSignatureMismatch
+	}
+	out := new(TicketNFTRoleGranted)
+	if len(log.Data) > 0 {
+		if err := ticketNFT.abi.UnpackIntoInterface(out, event, log.Data); err != nil {
+			return nil, err
+		}
+	}
+	var indexed abi.Arguments
+	for _, arg := range ticketNFT.abi.Events[event].Inputs {
+		if arg.Indexed {
+			indexed = append(indexed, arg)
+		}
+	}
+	if err := abi.ParseTopics(out, indexed, log.Topics[1:]); err != nil {
+		return nil, err
+	}
+	out.Raw = log
+	return out, nil
+}
+
+// TicketNFTRoleRevoked represents a RoleRevoked event raised by the TicketNFT contract.
+type TicketNFTRoleRevoked struct {
+	Role    [32]byte
+	Account common.Address
+	Sender  common.Address
+	Raw     *types.Log // Blockchain specific contextual infos
+}
+
+const TicketNFTRoleRevokedEventName = "RoleRevoked"
+
+// ContractEventName returns the user-defined event name.
+func (TicketNFTRoleRevoked) ContractEventName() string {
+	return TicketNFTRoleRevokedEventName
+}
+
+// UnpackRoleRevokedEvent is the Go binding that unpacks the event data emitted
+// by contract.
+//
+// Solidity: event RoleRevoked(bytes32 indexed role, address indexed account, address indexed sender)
+func (ticketNFT *TicketNFT) UnpackRoleRevokedEvent(log *types.Log) (*TicketNFTRoleRevoked, error) {
+	event := "RoleRevoked"
+	if len(log.Topics) == 0 {
+		return nil, bind.ErrNoEventSignature
+	}
+	if log.Topics[0] != ticketNFT.abi.Events[event].ID {
+		return nil, bind.ErrEventSignatureMismatch
+	}
+	out := new(TicketNFTRoleRevoked)
+	if len(log.Data) > 0 {
+		if err := ticketNFT.abi.UnpackIntoInterface(out, event, log.Data); err != nil {
+			return nil, err
+		}
+	}
+	var indexed abi.Arguments
+	for _, arg := range ticketNFT.abi.Events[event].Inputs {
+		if arg.Indexed {
+			indexed = append(indexed, arg)
+		}
+	}
+	if err := abi.ParseTopics(out, indexed, log.Topics[1:]); err != nil {
+		return nil, err
+	}
+	out.Raw = log
+	return out, nil
+}
+
+// TicketNFTTicketListed represents a TicketListed event raised by the TicketNFT contract.
+type TicketNFTTicketListed struct {
+	TokenId *big.Int
+	Seller  common.Address
+	Price   *big.Int
+	Raw     *types.Log // Blockchain specific contextual infos
+}
+
+const TicketNFTTicketListedEventName = "TicketListed"
+
+// ContractEventName returns the user-defined event name.
+func (TicketNFTTicketListed) ContractEventName() string {
+	return TicketNFTTicketListedEventName
+}
+
+// UnpackTicketListedEvent is the Go binding that unpacks the event data emitted
+// by contract.
+//
+// Solidity: event TicketListed(uint256 indexed tokenId, address indexed seller, uint256 price)
+func (ticketNFT *TicketNFT) UnpackTicketListedEvent(log *types.Log) (*TicketNFTTicketListed, error) {
+	event := "TicketListed"
+	if len(log.Topics) == 0 {
+		return nil, bind.ErrNoEventSignature
+	}
+	if log.Topics[0] != ticketNFT.abi.Events[event].ID {
+		return nil, bind.ErrEventSignatureMismatch
+	}
+	out := new(TicketNFTTicketListed)
+	if len(log.Data) > 0 {
+		if err := ticketNFT.abi.UnpackIntoInterface(out, event, log.Data); err != nil {
+			return nil, err
+		}
+	}
+	var indexed abi.Arguments
+	for _, arg := range ticketNFT.abi.Events[event].Inputs {
+		if arg.Indexed {
+			indexed = append(indexed, arg)
+		}
+	}
+	if err := abi.ParseTopics(out, indexed, log.Topics[1:]); err != nil {
+		return nil, err
+	}
+	out.Raw = log
+	return out, nil
+}
+
+// TicketNFTTicketMinted represents a TicketMinted event raised by the TicketNFT contract.
+type TicketNFTTicketMinted struct {
+	TokenId    *big.Int
+	To         common.Address
+	FaceValue  *big.Int
+	RecordHash [32]byte
+	Raw        *types.Log // Blockchain specific contextual infos
+}
+
+const TicketNFTTicketMintedEventName = "TicketMinted"
+
+// ContractEventName returns the user-defined event name.
+func (TicketNFTTicketMinted) ContractEventName() string {
+	return TicketNFTTicketMintedEventName
+}
+
+// UnpackTicketMintedEvent is the Go binding that unpacks the event data emitted
+// by contract.
+//
+// Solidity: event TicketMinted(uint256 indexed tokenId, address indexed to, uint256 faceValue, bytes32 recordHash)
+func (ticketNFT *TicketNFT) UnpackTicketMintedEvent(log *types.Log) (*TicketNFTTicketMinted, error) {
+	event := "TicketMinted"
+	if len(log.Topics) == 0 {
+		return nil, bind.ErrNoEventSignature
+	}
+	if log.Topics[0] != ticketNFT.abi.Events[event].ID {
+		return nil, bind.ErrEventSignatureMismatch
+	}
+	out := new(TicketNFTTicketMinted)
+	if len(log.Data) > 0 {
+		if err := ticketNFT.abi.UnpackIntoInterface(out, event, log.Data); err != nil {
+			return nil, err
+		}
+	}
+	var indexed abi.Arguments
+	for _, arg := range ticketNFT.abi.Events[event].Inputs {
+		if arg.Indexed {
+			indexed = append(indexed, arg)
+		}
+	}
+	if err := abi.ParseTopics(out, indexed, log.Topics[1:]); err != nil {
+		return nil, err
+	}
+	out.Raw = log
+	return out, nil
+}
+
+// TicketNFTTicketResold represents a TicketResold event raised by the TicketNFT contract.
+type TicketNFTTicketResold struct {
+	TokenId *big.Int
+	From    common.Address
+	To      common.Address
+	Price   *big.Int
+	Raw     *types.Log // Blockchain specific contextual infos
+}
+
+const TicketNFTTicketResoldEventName = "TicketResold"
+
+// ContractEventName returns the user-defined event name.
+func (TicketNFTTicketResold) ContractEventName() string {
+	return TicketNFTTicketResoldEventName
+}
+
+// UnpackTicketResoldEvent is the Go binding that unpacks the event data emitted
+// by contract.
+//
+// Solidity: event TicketResold(uint256 indexed tokenId, address indexed from, address indexed to, uint256 price)
+func (ticketNFT *TicketNFT) UnpackTicketResoldEvent(log *types.Log) (*TicketNFTTicketResold, error) {
+	event := "TicketResold"
+	if len(log.Topics) == 0 {
+		return nil, bind.ErrNoEventSignature
+	}
+	if log.Topics[0] != ticketNFT.abi.Events[event].ID {
+		return nil, bind.ErrEventSignatureMismatch
+	}
+	out := new(TicketNFTTicketResold)
+	if len(log.Data) > 0 {
+		if err := ticketNFT.abi.UnpackIntoInterface(out, event, log.Data); err != nil {
+			return nil, err
+		}
+	}
+	var indexed abi.Arguments
+	for _, arg := range ticketNFT.abi.Events[event].Inputs {
+		if arg.Indexed {
+			indexed = append(indexed, arg)
+		}
+	}
+	if err := abi.ParseTopics(out, indexed, log.Topics[1:]); err != nil {
+		return nil, err
+	}
+	out.Raw = log
+	return out, nil
+}
+
+// TicketNFTTransfer represents a Transfer event raised by the TicketNFT contract.
+type TicketNFTTransfer struct {
+	From    common.Address
+	To      common.Address
+	TokenId *big.Int
+	Raw     *types.Log // Blockchain specific contextual infos
+}
+
+const TicketNFTTransferEventName = "Transfer"
+
+// ContractEventName returns the user-defined event name.
+func (TicketNFTTransfer) ContractEventName() string {
+	return TicketNFTTransferEventName
+}
+
+// UnpackTransferEvent is the Go binding that unpacks the event data emitted
+// by contract.
+//
+// Solidity: event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)
+func (ticketNFT *TicketNFT) UnpackTransferEvent(log *types.Log) (*TicketNFTTransfer, error) {
+	event := "Transfer"
+	if len(log.Topics) == 0 {
+		return nil, bind.ErrNoEventSignature
+	}
+	if log.Topics[0] != ticketNFT.abi.Events[event].ID {
+		return nil, bind.ErrEventSignatureMismatch
+	}
+	out := new(TicketNFTTransfer)
+	if len(log.Data) > 0 {
+		if err := ticketNFT.abi.UnpackIntoInterface(out, event, log.Data); err != nil {
+			return nil, err
+		}
+	}
+	var indexed abi.Arguments
+	for _, arg := range ticketNFT.abi.Events[event].Inputs {
+		if arg.Indexed {
+			indexed = append(indexed, arg)
+		}
+	}
+	if err := abi.ParseTopics(out, indexed, log.Topics[1:]); err != nil {
+		return nil, err
+	}
+	out.Raw = log
+	return out, nil
+}
+
+// UnpackError attempts to decode the provided error data using user-defined
+// error definitions.
+func (ticketNFT *TicketNFT) UnpackError(raw []byte) (any, error) {
+	if bytes.Equal(raw[:4], ticketNFT.abi.Errors["AccessControlBadConfirmation"].ID.Bytes()[:4]) {
+		return ticketNFT.UnpackAccessControlBadConfirmationError(raw[4:])
+	}
+	if bytes.Equal(raw[:4], ticketNFT.abi.Errors["AccessControlUnauthorizedAccount"].ID.Bytes()[:4]) {
+		return ticketNFT.UnpackAccessControlUnauthorizedAccountError(raw[4:])
+	}
+	if bytes.Equal(raw[:4], ticketNFT.abi.Errors["BuyerIsSeller"].ID.Bytes()[:4]) {
+		return ticketNFT.UnpackBuyerIsSellerError(raw[4:])
+	}
+	if bytes.Equal(raw[:4], ticketNFT.abi.Errors["ERC721IncorrectOwner"].ID.Bytes()[:4]) {
+		return ticketNFT.UnpackERC721IncorrectOwnerError(raw[4:])
+	}
+	if bytes.Equal(raw[:4], ticketNFT.abi.Errors["ERC721InsufficientApproval"].ID.Bytes()[:4]) {
+		return ticketNFT.UnpackERC721InsufficientApprovalError(raw[4:])
+	}
+	if bytes.Equal(raw[:4], ticketNFT.abi.Errors["ERC721InvalidApprover"].ID.Bytes()[:4]) {
+		return ticketNFT.UnpackERC721InvalidApproverError(raw[4:])
+	}
+	if bytes.Equal(raw[:4], ticketNFT.abi.Errors["ERC721InvalidOperator"].ID.Bytes()[:4]) {
+		return ticketNFT.UnpackERC721InvalidOperatorError(raw[4:])
+	}
+	if bytes.Equal(raw[:4], ticketNFT.abi.Errors["ERC721InvalidOwner"].ID.Bytes()[:4]) {
+		return ticketNFT.UnpackERC721InvalidOwnerError(raw[4:])
+	}
+	if bytes.Equal(raw[:4], ticketNFT.abi.Errors["ERC721InvalidReceiver"].ID.Bytes()[:4]) {
+		return ticketNFT.UnpackERC721InvalidReceiverError(raw[4:])
+	}
+	if bytes.Equal(raw[:4], ticketNFT.abi.Errors["ERC721InvalidSender"].ID.Bytes()[:4]) {
+		return ticketNFT.UnpackERC721InvalidSenderError(raw[4:])
+	}
+	if bytes.Equal(raw[:4], ticketNFT.abi.Errors["ERC721NonexistentToken"].ID.Bytes()[:4]) {
+		return ticketNFT.UnpackERC721NonexistentTokenError(raw[4:])
+	}
+	if bytes.Equal(raw[:4], ticketNFT.abi.Errors["EmptyRecordHash"].ID.Bytes()[:4]) {
+		return ticketNFT.UnpackEmptyRecordHashError(raw[4:])
+	}
+	if bytes.Equal(raw[:4], ticketNFT.abi.Errors["EventStarted"].ID.Bytes()[:4]) {
+		return ticketNFT.UnpackEventStartedError(raw[4:])
+	}
+	if bytes.Equal(raw[:4], ticketNFT.abi.Errors["InvalidConfig"].ID.Bytes()[:4]) {
+		return ticketNFT.UnpackInvalidConfigError(raw[4:])
+	}
+	if bytes.Equal(raw[:4], ticketNFT.abi.Errors["NotListed"].ID.Bytes()[:4]) {
+		return ticketNFT.UnpackNotListedError(raw[4:])
+	}
+	if bytes.Equal(raw[:4], ticketNFT.abi.Errors["NotTicketHolder"].ID.Bytes()[:4]) {
+		return ticketNFT.UnpackNotTicketHolderError(raw[4:])
+	}
+	if bytes.Equal(raw[:4], ticketNFT.abi.Errors["PriceAboveCap"].ID.Bytes()[:4]) {
+		return ticketNFT.UnpackPriceAboveCapError(raw[4:])
+	}
+	if bytes.Equal(raw[:4], ticketNFT.abi.Errors["PriceAboveMaxPrice"].ID.Bytes()[:4]) {
+		return ticketNFT.UnpackPriceAboveMaxPriceError(raw[4:])
+	}
+	if bytes.Equal(raw[:4], ticketNFT.abi.Errors["SoldOut"].ID.Bytes()[:4]) {
+		return ticketNFT.UnpackSoldOutError(raw[4:])
+	}
+	if bytes.Equal(raw[:4], ticketNFT.abi.Errors["TransfersDisabled"].ID.Bytes()[:4]) {
+		return ticketNFT.UnpackTransfersDisabledError(raw[4:])
+	}
+	if bytes.Equal(raw[:4], ticketNFT.abi.Errors["ZeroPrice"].ID.Bytes()[:4]) {
+		return ticketNFT.UnpackZeroPriceError(raw[4:])
+	}
+	return nil, errors.New("Unknown error")
+}
+
+// TicketNFTAccessControlBadConfirmation represents a AccessControlBadConfirmation error raised by the TicketNFT contract.
+type TicketNFTAccessControlBadConfirmation struct {
+}
+
+// ErrorID returns the hash of canonical representation of the error's signature.
+//
+// Solidity: error AccessControlBadConfirmation()
+func TicketNFTAccessControlBadConfirmationErrorID() common.Hash {
+	return common.HexToHash("0x6697b23232a647058342c0724fe7c415cab25915b54e5dbc03f233173d37b41c")
+}
+
+// UnpackAccessControlBadConfirmationError is the Go binding used to decode the provided
+// error data into the corresponding Go error struct.
+//
+// Solidity: error AccessControlBadConfirmation()
+func (ticketNFT *TicketNFT) UnpackAccessControlBadConfirmationError(raw []byte) (*TicketNFTAccessControlBadConfirmation, error) {
+	out := new(TicketNFTAccessControlBadConfirmation)
+	if err := ticketNFT.abi.UnpackIntoInterface(out, "AccessControlBadConfirmation", raw); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// TicketNFTAccessControlUnauthorizedAccount represents a AccessControlUnauthorizedAccount error raised by the TicketNFT contract.
+type TicketNFTAccessControlUnauthorizedAccount struct {
+	Account    common.Address
+	NeededRole [32]byte
+}
+
+// ErrorID returns the hash of canonical representation of the error's signature.
+//
+// Solidity: error AccessControlUnauthorizedAccount(address account, bytes32 neededRole)
+func TicketNFTAccessControlUnauthorizedAccountErrorID() common.Hash {
+	return common.HexToHash("0xe2517d3fbfae6f8515ef5ff1ccedc3933ab0cbbda0b492c06eb54ad10ef03b3e")
+}
+
+// UnpackAccessControlUnauthorizedAccountError is the Go binding used to decode the provided
+// error data into the corresponding Go error struct.
+//
+// Solidity: error AccessControlUnauthorizedAccount(address account, bytes32 neededRole)
+func (ticketNFT *TicketNFT) UnpackAccessControlUnauthorizedAccountError(raw []byte) (*TicketNFTAccessControlUnauthorizedAccount, error) {
+	out := new(TicketNFTAccessControlUnauthorizedAccount)
+	if err := ticketNFT.abi.UnpackIntoInterface(out, "AccessControlUnauthorizedAccount", raw); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// TicketNFTBuyerIsSeller represents a BuyerIsSeller error raised by the TicketNFT contract.
+type TicketNFTBuyerIsSeller struct {
+}
+
+// ErrorID returns the hash of canonical representation of the error's signature.
+//
+// Solidity: error BuyerIsSeller()
+func TicketNFTBuyerIsSellerErrorID() common.Hash {
+	return common.HexToHash("0x618350596b18803f7b9674dba6324378e0091c153139de70f0c90a97e84e19a5")
+}
+
+// UnpackBuyerIsSellerError is the Go binding used to decode the provided
+// error data into the corresponding Go error struct.
+//
+// Solidity: error BuyerIsSeller()
+func (ticketNFT *TicketNFT) UnpackBuyerIsSellerError(raw []byte) (*TicketNFTBuyerIsSeller, error) {
+	out := new(TicketNFTBuyerIsSeller)
+	if err := ticketNFT.abi.UnpackIntoInterface(out, "BuyerIsSeller", raw); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// TicketNFTERC721IncorrectOwner represents a ERC721IncorrectOwner error raised by the TicketNFT contract.
+type TicketNFTERC721IncorrectOwner struct {
+	Sender  common.Address
+	TokenId *big.Int
+	Owner   common.Address
+}
+
+// ErrorID returns the hash of canonical representation of the error's signature.
+//
+// Solidity: error ERC721IncorrectOwner(address sender, uint256 tokenId, address owner)
+func TicketNFTERC721IncorrectOwnerErrorID() common.Hash {
+	return common.HexToHash("0x64283d7b313c8117c125f736876fa2b4e90ea3831a4716dfdb87d2f540e26289")
+}
+
+// UnpackERC721IncorrectOwnerError is the Go binding used to decode the provided
+// error data into the corresponding Go error struct.
+//
+// Solidity: error ERC721IncorrectOwner(address sender, uint256 tokenId, address owner)
+func (ticketNFT *TicketNFT) UnpackERC721IncorrectOwnerError(raw []byte) (*TicketNFTERC721IncorrectOwner, error) {
+	out := new(TicketNFTERC721IncorrectOwner)
+	if err := ticketNFT.abi.UnpackIntoInterface(out, "ERC721IncorrectOwner", raw); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// TicketNFTERC721InsufficientApproval represents a ERC721InsufficientApproval error raised by the TicketNFT contract.
+type TicketNFTERC721InsufficientApproval struct {
+	Operator common.Address
+	TokenId  *big.Int
+}
+
+// ErrorID returns the hash of canonical representation of the error's signature.
+//
+// Solidity: error ERC721InsufficientApproval(address operator, uint256 tokenId)
+func TicketNFTERC721InsufficientApprovalErrorID() common.Hash {
+	return common.HexToHash("0x177e802f6f313bc89797ecace66d6d29ab4719cbaaacbb87367264048b1eb861")
+}
+
+// UnpackERC721InsufficientApprovalError is the Go binding used to decode the provided
+// error data into the corresponding Go error struct.
+//
+// Solidity: error ERC721InsufficientApproval(address operator, uint256 tokenId)
+func (ticketNFT *TicketNFT) UnpackERC721InsufficientApprovalError(raw []byte) (*TicketNFTERC721InsufficientApproval, error) {
+	out := new(TicketNFTERC721InsufficientApproval)
+	if err := ticketNFT.abi.UnpackIntoInterface(out, "ERC721InsufficientApproval", raw); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// TicketNFTERC721InvalidApprover represents a ERC721InvalidApprover error raised by the TicketNFT contract.
+type TicketNFTERC721InvalidApprover struct {
+	Approver common.Address
+}
+
+// ErrorID returns the hash of canonical representation of the error's signature.
+//
+// Solidity: error ERC721InvalidApprover(address approver)
+func TicketNFTERC721InvalidApproverErrorID() common.Hash {
+	return common.HexToHash("0xa9fbf51f86b8e03595d59dc726bb10c329bb24f62589be276d8dd193ca0b69ea")
+}
+
+// UnpackERC721InvalidApproverError is the Go binding used to decode the provided
+// error data into the corresponding Go error struct.
+//
+// Solidity: error ERC721InvalidApprover(address approver)
+func (ticketNFT *TicketNFT) UnpackERC721InvalidApproverError(raw []byte) (*TicketNFTERC721InvalidApprover, error) {
+	out := new(TicketNFTERC721InvalidApprover)
+	if err := ticketNFT.abi.UnpackIntoInterface(out, "ERC721InvalidApprover", raw); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// TicketNFTERC721InvalidOperator represents a ERC721InvalidOperator error raised by the TicketNFT contract.
+type TicketNFTERC721InvalidOperator struct {
+	Operator common.Address
+}
+
+// ErrorID returns the hash of canonical representation of the error's signature.
+//
+// Solidity: error ERC721InvalidOperator(address operator)
+func TicketNFTERC721InvalidOperatorErrorID() common.Hash {
+	return common.HexToHash("0x5b08ba185e8f577075361f3a3555a6580a227ce22734dcc979c1aeadf894658b")
+}
+
+// UnpackERC721InvalidOperatorError is the Go binding used to decode the provided
+// error data into the corresponding Go error struct.
+//
+// Solidity: error ERC721InvalidOperator(address operator)
+func (ticketNFT *TicketNFT) UnpackERC721InvalidOperatorError(raw []byte) (*TicketNFTERC721InvalidOperator, error) {
+	out := new(TicketNFTERC721InvalidOperator)
+	if err := ticketNFT.abi.UnpackIntoInterface(out, "ERC721InvalidOperator", raw); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// TicketNFTERC721InvalidOwner represents a ERC721InvalidOwner error raised by the TicketNFT contract.
+type TicketNFTERC721InvalidOwner struct {
+	Owner common.Address
+}
+
+// ErrorID returns the hash of canonical representation of the error's signature.
+//
+// Solidity: error ERC721InvalidOwner(address owner)
+func TicketNFTERC721InvalidOwnerErrorID() common.Hash {
+	return common.HexToHash("0x89c62b6479af2e623826dcc39c5133061d35b66d72de92833401dd2fd6567480")
+}
+
+// UnpackERC721InvalidOwnerError is the Go binding used to decode the provided
+// error data into the corresponding Go error struct.
+//
+// Solidity: error ERC721InvalidOwner(address owner)
+func (ticketNFT *TicketNFT) UnpackERC721InvalidOwnerError(raw []byte) (*TicketNFTERC721InvalidOwner, error) {
+	out := new(TicketNFTERC721InvalidOwner)
+	if err := ticketNFT.abi.UnpackIntoInterface(out, "ERC721InvalidOwner", raw); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// TicketNFTERC721InvalidReceiver represents a ERC721InvalidReceiver error raised by the TicketNFT contract.
+type TicketNFTERC721InvalidReceiver struct {
+	Receiver common.Address
+}
+
+// ErrorID returns the hash of canonical representation of the error's signature.
+//
+// Solidity: error ERC721InvalidReceiver(address receiver)
+func TicketNFTERC721InvalidReceiverErrorID() common.Hash {
+	return common.HexToHash("0x64a0ae9278f805eaf991dcd18ca78756d280b7508b764ef1b255c55845c11df9")
+}
+
+// UnpackERC721InvalidReceiverError is the Go binding used to decode the provided
+// error data into the corresponding Go error struct.
+//
+// Solidity: error ERC721InvalidReceiver(address receiver)
+func (ticketNFT *TicketNFT) UnpackERC721InvalidReceiverError(raw []byte) (*TicketNFTERC721InvalidReceiver, error) {
+	out := new(TicketNFTERC721InvalidReceiver)
+	if err := ticketNFT.abi.UnpackIntoInterface(out, "ERC721InvalidReceiver", raw); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// TicketNFTERC721InvalidSender represents a ERC721InvalidSender error raised by the TicketNFT contract.
+type TicketNFTERC721InvalidSender struct {
+	Sender common.Address
+}
+
+// ErrorID returns the hash of canonical representation of the error's signature.
+//
+// Solidity: error ERC721InvalidSender(address sender)
+func TicketNFTERC721InvalidSenderErrorID() common.Hash {
+	return common.HexToHash("0x73c6ac6e10798e95d99e1f130d923eb40193ecb8d094ec3dce93292564eb3b17")
+}
+
+// UnpackERC721InvalidSenderError is the Go binding used to decode the provided
+// error data into the corresponding Go error struct.
+//
+// Solidity: error ERC721InvalidSender(address sender)
+func (ticketNFT *TicketNFT) UnpackERC721InvalidSenderError(raw []byte) (*TicketNFTERC721InvalidSender, error) {
+	out := new(TicketNFTERC721InvalidSender)
+	if err := ticketNFT.abi.UnpackIntoInterface(out, "ERC721InvalidSender", raw); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// TicketNFTERC721NonexistentToken represents a ERC721NonexistentToken error raised by the TicketNFT contract.
+type TicketNFTERC721NonexistentToken struct {
+	TokenId *big.Int
+}
+
+// ErrorID returns the hash of canonical representation of the error's signature.
+//
+// Solidity: error ERC721NonexistentToken(uint256 tokenId)
+func TicketNFTERC721NonexistentTokenErrorID() common.Hash {
+	return common.HexToHash("0x7e273289a3a9ef6670f06df7dca227856fc925e956db96980692764a8bc734d7")
+}
+
+// UnpackERC721NonexistentTokenError is the Go binding used to decode the provided
+// error data into the corresponding Go error struct.
+//
+// Solidity: error ERC721NonexistentToken(uint256 tokenId)
+func (ticketNFT *TicketNFT) UnpackERC721NonexistentTokenError(raw []byte) (*TicketNFTERC721NonexistentToken, error) {
+	out := new(TicketNFTERC721NonexistentToken)
+	if err := ticketNFT.abi.UnpackIntoInterface(out, "ERC721NonexistentToken", raw); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// TicketNFTEmptyRecordHash represents a EmptyRecordHash error raised by the TicketNFT contract.
+type TicketNFTEmptyRecordHash struct {
+}
+
+// ErrorID returns the hash of canonical representation of the error's signature.
+//
+// Solidity: error EmptyRecordHash()
+func TicketNFTEmptyRecordHashErrorID() common.Hash {
+	return common.HexToHash("0x3da1ae16ccc54aff6dcf02e753311248334fe80db5a081fbec5989ccbb2fd9b5")
+}
+
+// UnpackEmptyRecordHashError is the Go binding used to decode the provided
+// error data into the corresponding Go error struct.
+//
+// Solidity: error EmptyRecordHash()
+func (ticketNFT *TicketNFT) UnpackEmptyRecordHashError(raw []byte) (*TicketNFTEmptyRecordHash, error) {
+	out := new(TicketNFTEmptyRecordHash)
+	if err := ticketNFT.abi.UnpackIntoInterface(out, "EmptyRecordHash", raw); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// TicketNFTEventStarted represents a EventStarted error raised by the TicketNFT contract.
+type TicketNFTEventStarted struct {
+}
+
+// ErrorID returns the hash of canonical representation of the error's signature.
+//
+// Solidity: error EventStarted()
+func TicketNFTEventStartedErrorID() common.Hash {
+	return common.HexToHash("0x292403c31f9543e41c6458bb9eb5eac3516353be8e91cdd4c3238f478142f059")
+}
+
+// UnpackEventStartedError is the Go binding used to decode the provided
+// error data into the corresponding Go error struct.
+//
+// Solidity: error EventStarted()
+func (ticketNFT *TicketNFT) UnpackEventStartedError(raw []byte) (*TicketNFTEventStarted, error) {
+	out := new(TicketNFTEventStarted)
+	if err := ticketNFT.abi.UnpackIntoInterface(out, "EventStarted", raw); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// TicketNFTInvalidConfig represents a InvalidConfig error raised by the TicketNFT contract.
+type TicketNFTInvalidConfig struct {
+}
+
+// ErrorID returns the hash of canonical representation of the error's signature.
+//
+// Solidity: error InvalidConfig()
+func TicketNFTInvalidConfigErrorID() common.Hash {
+	return common.HexToHash("0x35be3ac88eaaf385e6b33d44d849a44bdc3ae215676d5d7e0194dfe20d80c66e")
+}
+
+// UnpackInvalidConfigError is the Go binding used to decode the provided
+// error data into the corresponding Go error struct.
+//
+// Solidity: error InvalidConfig()
+func (ticketNFT *TicketNFT) UnpackInvalidConfigError(raw []byte) (*TicketNFTInvalidConfig, error) {
+	out := new(TicketNFTInvalidConfig)
+	if err := ticketNFT.abi.UnpackIntoInterface(out, "InvalidConfig", raw); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// TicketNFTNotListed represents a NotListed error raised by the TicketNFT contract.
+type TicketNFTNotListed struct {
+	TokenId *big.Int
+}
+
+// ErrorID returns the hash of canonical representation of the error's signature.
+//
+// Solidity: error NotListed(uint256 tokenId)
+func TicketNFTNotListedErrorID() common.Hash {
+	return common.HexToHash("0xd176cea0d27fd63dcbcf21630f5c3452bee00c238c2ad1142db4ae64e0f26fd0")
+}
+
+// UnpackNotListedError is the Go binding used to decode the provided
+// error data into the corresponding Go error struct.
+//
+// Solidity: error NotListed(uint256 tokenId)
+func (ticketNFT *TicketNFT) UnpackNotListedError(raw []byte) (*TicketNFTNotListed, error) {
+	out := new(TicketNFTNotListed)
+	if err := ticketNFT.abi.UnpackIntoInterface(out, "NotListed", raw); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// TicketNFTNotTicketHolder represents a NotTicketHolder error raised by the TicketNFT contract.
+type TicketNFTNotTicketHolder struct {
+	TokenId *big.Int
+}
+
+// ErrorID returns the hash of canonical representation of the error's signature.
+//
+// Solidity: error NotTicketHolder(uint256 tokenId)
+func TicketNFTNotTicketHolderErrorID() common.Hash {
+	return common.HexToHash("0xb1a257d892b9a020fd0b795fd263c5427eccc65cffedf7dffb475c6a7b2f5d77")
+}
+
+// UnpackNotTicketHolderError is the Go binding used to decode the provided
+// error data into the corresponding Go error struct.
+//
+// Solidity: error NotTicketHolder(uint256 tokenId)
+func (ticketNFT *TicketNFT) UnpackNotTicketHolderError(raw []byte) (*TicketNFTNotTicketHolder, error) {
+	out := new(TicketNFTNotTicketHolder)
+	if err := ticketNFT.abi.UnpackIntoInterface(out, "NotTicketHolder", raw); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// TicketNFTPriceAboveCap represents a PriceAboveCap error raised by the TicketNFT contract.
+type TicketNFTPriceAboveCap struct {
+	Price *big.Int
+	Cap   *big.Int
+}
+
+// ErrorID returns the hash of canonical representation of the error's signature.
+//
+// Solidity: error PriceAboveCap(uint256 price, uint256 cap)
+func TicketNFTPriceAboveCapErrorID() common.Hash {
+	return common.HexToHash("0x842c488ab9609c345f75f58201dac86cf45ff680afc0f4f3009f49a8236da33c")
+}
+
+// UnpackPriceAboveCapError is the Go binding used to decode the provided
+// error data into the corresponding Go error struct.
+//
+// Solidity: error PriceAboveCap(uint256 price, uint256 cap)
+func (ticketNFT *TicketNFT) UnpackPriceAboveCapError(raw []byte) (*TicketNFTPriceAboveCap, error) {
+	out := new(TicketNFTPriceAboveCap)
+	if err := ticketNFT.abi.UnpackIntoInterface(out, "PriceAboveCap", raw); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// TicketNFTPriceAboveMaxPrice represents a PriceAboveMaxPrice error raised by the TicketNFT contract.
+type TicketNFTPriceAboveMaxPrice struct {
+	Price    *big.Int
+	MaxPrice *big.Int
+}
+
+// ErrorID returns the hash of canonical representation of the error's signature.
+//
+// Solidity: error PriceAboveMaxPrice(uint256 price, uint256 maxPrice)
+func TicketNFTPriceAboveMaxPriceErrorID() common.Hash {
+	return common.HexToHash("0xf319e5e3575dfacb8b91a7f606229c29969bfd23cb9f9ce803c562b7f56c6301")
+}
+
+// UnpackPriceAboveMaxPriceError is the Go binding used to decode the provided
+// error data into the corresponding Go error struct.
+//
+// Solidity: error PriceAboveMaxPrice(uint256 price, uint256 maxPrice)
+func (ticketNFT *TicketNFT) UnpackPriceAboveMaxPriceError(raw []byte) (*TicketNFTPriceAboveMaxPrice, error) {
+	out := new(TicketNFTPriceAboveMaxPrice)
+	if err := ticketNFT.abi.UnpackIntoInterface(out, "PriceAboveMaxPrice", raw); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// TicketNFTSoldOut represents a SoldOut error raised by the TicketNFT contract.
+type TicketNFTSoldOut struct {
+}
+
+// ErrorID returns the hash of canonical representation of the error's signature.
+//
+// Solidity: error SoldOut()
+func TicketNFTSoldOutErrorID() common.Hash {
+	return common.HexToHash("0x52df9fe5b9c9a7b0b4fdc2c9f89387959e35e4209c2a8d133a2b8165edad2a04")
+}
+
+// UnpackSoldOutError is the Go binding used to decode the provided
+// error data into the corresponding Go error struct.
+//
+// Solidity: error SoldOut()
+func (ticketNFT *TicketNFT) UnpackSoldOutError(raw []byte) (*TicketNFTSoldOut, error) {
+	out := new(TicketNFTSoldOut)
+	if err := ticketNFT.abi.UnpackIntoInterface(out, "SoldOut", raw); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// TicketNFTTransfersDisabled represents a TransfersDisabled error raised by the TicketNFT contract.
+type TicketNFTTransfersDisabled struct {
+}
+
+// ErrorID returns the hash of canonical representation of the error's signature.
+//
+// Solidity: error TransfersDisabled()
+func TicketNFTTransfersDisabledErrorID() common.Hash {
+	return common.HexToHash("0x8574adcfb0eb8c46c67db25ca9cd9d7b2e5c6606b1da1f502824783bba70aeef")
+}
+
+// UnpackTransfersDisabledError is the Go binding used to decode the provided
+// error data into the corresponding Go error struct.
+//
+// Solidity: error TransfersDisabled()
+func (ticketNFT *TicketNFT) UnpackTransfersDisabledError(raw []byte) (*TicketNFTTransfersDisabled, error) {
+	out := new(TicketNFTTransfersDisabled)
+	if err := ticketNFT.abi.UnpackIntoInterface(out, "TransfersDisabled", raw); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// TicketNFTZeroPrice represents a ZeroPrice error raised by the TicketNFT contract.
+type TicketNFTZeroPrice struct {
+}
+
+// ErrorID returns the hash of canonical representation of the error's signature.
+//
+// Solidity: error ZeroPrice()
+func TicketNFTZeroPriceErrorID() common.Hash {
+	return common.HexToHash("0x4dfba023c19aaad0ad1005b8a52f2ae0c7a1acb3f45ecd31562b980620d65f93")
+}
+
+// UnpackZeroPriceError is the Go binding used to decode the provided
+// error data into the corresponding Go error struct.
+//
+// Solidity: error ZeroPrice()
+func (ticketNFT *TicketNFT) UnpackZeroPriceError(raw []byte) (*TicketNFTZeroPrice, error) {
+	out := new(TicketNFTZeroPrice)
+	if err := ticketNFT.abi.UnpackIntoInterface(out, "ZeroPrice", raw); err != nil {
+		return nil, err
+	}
+	return out, nil
+}

@@ -147,6 +147,31 @@ cast call $NFT "balanceOf(address)(uint256)" 0xbf9c35b275b3b5406fb7b23978af3990c
 cast codesize $NFT               # 0 means no contract at that address
 ```
 
+A TicketNFT has a few more views. `ticketInfo` returns face value, record hash
+and listing price (0 = not listed); face value and record hash stay readable
+after check-in.
+
+```bash
+TICKET=0x...   # an event's contract address
+
+cast call $TICKET "ticketInfo(uint256)(uint256,bytes32,uint256)" 1
+cast call $TICKET "resaleCap(uint256)(uint256)" 1
+cast call $TICKET "mintedCount()(uint32)"
+cast call $TICKET "maxSupply()(uint32)"
+cast call $TICKET "eventStart()(uint64)"
+cast call $TICKET "hasRole(bytes32,address)(bool)" $(cast keccak MINTER_ROLE) 0x...box-office-address
+```
+
+TicketNFT reverts with custom errors. A failed `eth_estimateGas` or `eth_call`
+carries the error's ABI data. Decode it with the error's signature:
+
+```bash
+cast decode-error --sig "PriceAboveCap(uint256,uint256)" 0x842c488a...
+```
+
+The Go side does the same with go-ethereum's `ethclient.RevertErrorData(err)` and the binding's
+`UnpackError`.
+
 ### Accounts
 
 ```bash
@@ -185,7 +210,7 @@ docker logs -f docker-besu-1 2>&1 | grep Produced                    # follow li
 ```
 
 The logs don't show what a transaction did. Use `cast tx` / `cast receipt`
-or `scripts/find_deploys.py` for that.
+or `scripts/find_activity.py` for that.
 
 `Unable to find sync target. Waiting for 5 peers` is harmless. It's a
 single-node network with discovery off.
@@ -231,70 +256,63 @@ Tests don't touch the `public` schema. Each one creates its own `test_<random>`
 schema, migrates it and drops it afterwards. Point them at another database with
 `DATABASE_URL`.
 
-## scripts/find_deploys.py
+## scripts/find_activity.py
 
-Lists every deployment of a compiled contract. It scans each block for creation
-transactions (no `to`) whose input starts with the contract's bytecode from
-`contracts/build/<Name>.bin`, then prints the new address and the deployed
-contract's `name()` / `symbol()`.
-
-```bash
-python3 scripts/find_deploys.py                  # DemoNFT
-python3 scripts/find_deploys.py TicketNFT        # another contract in contracts/build
-python3 scripts/find_deploys.py --rpc http://localhost:8545 --batch 500
-```
-
-Output:
-
-```
-block 2205  tx 0xed5e…  from 0x2971…  contract 0x6755…  ok  'Demo Ticket' (DEMO)
-```
-
-Notes:
-- `m1deploy` deploys are named `Demo Ticket`. `go test` deploys are named `Test`,
-  two per run.
-- It matches the bytecode *as currently built*. After a contract is rebuilt with
-  different settings, or recompiled in a way that changes its metadata hash, older
-  deploys no longer match.
-- It uses only the Python standard library. Blocks are fetched in batched JSON-RPC requests.
-
-## scripts/find_minted.py
-
-Lists every ERC-721 mint on the chain, from any contract, with each token's current
-owner. A mint is a `Transfer` event from the zero address, so this uses
-`eth_getLogs` instead of reading every block. It takes well under a second.
+Lists everything that happened to the contracts on the chain, in chain order: each
+contract deploy, and each ERC-721 mint, resale, check-in or other transfer. Every
+line shows who signed the transaction (`by`).
 
 ```bash
-python3 scripts/find_minted.py                                      # all mints
-python3 scripts/find_minted.py --contract 0x9c4faec1a6dc6331d1408b15d7671edccb35d9c5
-python3 scripts/find_minted.py --to 0x000000000000000000000000000000000000bEEF
-python3 scripts/find_minted.py --from-block 2000
+python3 scripts/find_activity.py                     # everything
+python3 scripts/find_activity.py --contract 0x...    # one contract: its deploy and all its tickets
+python3 scripts/find_activity.py --contract 0x... --token 1   # one ticket's history
+python3 scripts/find_activity.py --to 0x...          # tokens that arrived at an address
+python3 scripts/find_activity.py --from 0x...        # tokens that left an address
+python3 scripts/find_activity.py --from-block 1600
+python3 scripts/find_activity.py --full              # whole hashes and addresses, for pasting into cast
 ```
 
-Output:
+Output (the Go lifecycle test: deploy, mint to Alice, Alice sells to Bob, the gate
+checks Bob in):
 
 ```
-block 1039  tx 0xbebc…  contract 0x9c4f… 'Demo Ticket' (DEMO)  token 1  to 0xbf9c…
+[469] tx 0x2590ff9ca18d639d13... contract <0x0ec4e338aea153...> TicketNFT 'Go Test Fest' (GTF) by <0xff51f9abc837b3...>  deploy
+[470] tx 0x78fd47a910884dc882... contract <0x0ec4e338aea153...> TicketNFT 'Go Test Fest' (GTF) tID 1 from <0x00000000000000...> to <0x8ffe58062205fb...> by <0xfec7fd18c4ffa7...>  mint
+[472] tx 0x2c12f29e2d5c619462... contract <0x0ec4e338aea153...> TicketNFT 'Go Test Fest' (GTF) tID 1 from <0x8ffe58062205fb...> to <0xdb7f4568ac2abd...> by <0xdb7f4568ac2abd...>  resale price 110000000
+[473] tx 0x27d316441d9122a1db... contract <0x0ec4e338aea153...> TicketNFT 'Go Test Fest' (GTF) tID 1 from <0xdb7f4568ac2abd...> to <0x00000000000000...> by <0xac54b1936448a9...>  check-in
 ```
 
-If the token has since moved, the line ends with `now <owner>`, or `now burned`
-if `ownerOf` reverts. That will show resales and check-ins once `TicketNFT` exists.
+How to read a line:
+- `contract` is the contract's address, followed by its type and its `name()` /
+  `symbol()`. The type is the contract in `contracts/build` whose creation bytecode
+  the deploy matches. It is `?` if none does, for example a deploy made before the
+  last `contracts/build.sh` run changed the bytecode, even if only its metadata hash.
+- For token lines, `from` and `to` are the token's previous and new owner. `from` is
+  the zero address for a mint, and `to` is the zero address for a burn.
+- `by` is the transaction's signer: the deployer for a deploy, the box office for a
+  mint, the buyer for a resale (so `by` equals `to`), and the gate for a check-in.
+- The last column is `deploy` (or `deploy reverted`), `mint`, `resale price <n>`
+  (from `TicketResold`), `check-in` (from `CheckedIn`), `burn` or `transfer`.
+  TicketNFT blocks plain transfers, so its token lines are only mints, resales and
+  check-ins. The price is in the token's smallest unit: 110000000 is 110.00 with 6
+  decimals.
 
 Notes:
-- ERC-20 `Transfer` events have the same signature hash. The script skips them by
-  keeping only logs with 4 topics, because ERC-721 indexes `tokenId` and ERC-20 doesn't.
-- It doesn't depend on bytecode, so unlike `find_deploys.py` it still finds mints on
-  contracts built before a rebuild.
-- Besu caps one `eth_getLogs` call at 5000 blocks (`--rpc-max-logs-range`), so the
-  script queries in 5000-block chunks.
-- The same query with cast (the topic is `cast keccak "Transfer(address,address,uint256)"`):
+- `--from`, `--to` and `--token` select token activity, so deploys are left out when
+  you use them. `--contract` keeps both.
+- Deploys are found by reading every block, since a creation has no `to` to filter
+  on. Token activity uses `eth_getLogs`, in 5000-block chunks because Besu caps one
+  call at that (`--rpc-max-logs-range`).
+- ERC-20 `Transfer` events share the signature hash. They are skipped because they
+  have 3 topics; ERC-721 indexes `tokenId`, so its logs have 4.
+- Its JSON-RPC helpers are in `scripts/ethrpc.py`. It uses only the Python standard
+  library.
+- The same mint query with cast (the topic is `cast keccak "Transfer(address,address,uint256)"`):
 
   ```bash
   cast logs --from-block 0 "Transfer(address indexed,address indexed,uint256 indexed)" \
     0x0000000000000000000000000000000000000000
   ```
-
-Both scripts share their JSON-RPC helpers through `scripts/ethrpc.py`.
 
 ## contracts/build.sh
 
@@ -306,7 +324,7 @@ anywhere:
 ```
 
 It:
-1. runs `npm install` if OpenZeppelin is missing from `contracts/node_modules`
+1. runs `npm install` if OpenZeppelin or forge-std is missing from `contracts/node_modules`
 2. runs `forge build` (solc 0.8.38, settings in `contracts/foundry.toml`)
 3. copies the ABI and bytecode from `contracts/out/<Name>.sol/<Name>.json` into
    `contracts/build/<Name>.abi` / `.bin` (committed)
@@ -315,11 +333,30 @@ It:
 Requires `forge` and `jq`. You only need it after changing a contract. Building
 the Go service uses the committed bindings.
 
+## forge test
+
+The contract tests are in `contracts/test/TicketNFT.t.sol` and run in Forge's
+in-memory EVM, so they need no chain. Run them from `contracts/`:
+
+```bash
+cd contracts
+forge test                      # all tests, including a 256-run fuzz of the resale cap
+forge test --match-test Buy -vv # only tests whose name contains "Buy"
+forge test -vvvv --match-test test_Buy_SellerRaisedPriceReverts  # full call trace
+forge test --gas-report         # gas per function
+```
+
+Tests move time with `vm.warp` and act as other accounts with `vm.prank`.
+forge-std comes from npm (pinned to a GitHub tag in `package.json`), next to
+OpenZeppelin, so there is no git submodule.
+
 ## Go smoke test and tests
 
 ```bash
 go run ./cmd/m1deploy    # deploy DemoNFT, mint token 1, verify ownerOf
 KEY_ENCRYPTION_KEY=... go run ./cmd/m2demo   # same, with the key and nonces in Postgres
 go test ./...            # Besu / Postgres tests skip if those aren't running
+go test -count=1 ./...   # bypass Go's test cache so the chain tests really deploy
+go test -count=1 -v -run TestTicketNFT ./internal/chain/   # TicketNFT lifecycle on Besu
 BESU_RPC_URL=http://other-host:8545 go test ./internal/chain/
 ```

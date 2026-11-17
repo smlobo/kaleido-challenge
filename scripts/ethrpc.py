@@ -62,6 +62,15 @@ def word_to_address(word: str) -> str:
     return "0x" + word[-40:].lower()
 
 
+HASH_CHARS = 20  # "0x" + 18 hex digits of a 32-byte hash
+ADDR_CHARS = 16  # "0x" + 14 hex digits of a 20-byte address
+
+
+def shorten(value: str, keep: int, full: bool = False) -> str:
+    """The first `keep` characters plus '...', or the whole value when full is set."""
+    return value if full or len(value) <= keep else value[:keep] + "..."
+
+
 def uint_word(n: int) -> str:
     """ABI-encode a uint256 as 64 hex chars, no 0x."""
     return f"{n:064x}"

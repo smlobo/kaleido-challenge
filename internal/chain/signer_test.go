@@ -9,13 +9,14 @@ import (
 
 // First Hardhat/Anvil dev account; public test vector, never a real key.
 const hardhatKey0 = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+const hardhatAddr0 = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
 
 func TestSignerAddress(t *testing.T) {
 	s, err := NewSignerFromHex(hardhatKey0, ChainID1337)
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := common.HexToAddress("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266")
+	want := common.HexToAddress(hardhatAddr0)
 	if s.Address() != want {
 		t.Fatalf("address = %s, want %s", s.Address(), want)
 	}
