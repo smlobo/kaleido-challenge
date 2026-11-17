@@ -1,4 +1,4 @@
-# Single-node Besu QBFT development chain
+# Local dev stack: single-node Besu QBFT chain + Postgres
 #
 # docker compose up -d --wait # start; JSON-RPC on http://localhost:8545, ws://localhost:8546
 # docker compose down # stop and wipe chain state
@@ -40,6 +40,22 @@ services:
     healthcheck:
       test: ["CMD-SHELL", "timeout 5s bash -c ':> /dev/tcp/localhost/8545'"]
       interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # Service state store. No volume on purpose: `down` wipes it together with
+  # the chain, so keys and nonces never outlive the chain they belong to.
+  postgres:
+    image: postgres:17.6-alpine
+    ports:
+      - 5432:5432
+    environment:
+      POSTGRES_USER: ticketing
+      POSTGRES_PASSWORD: ticketing
+      POSTGRES_DB: ticketing
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ticketing -d ticketing"]
+      interval: 2s
       timeout: 5s
       retries: 20
 

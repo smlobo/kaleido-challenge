@@ -1,22 +1,38 @@
 # kaleido-challenge
-Event ticketing service on a local Besu QBFT chain (ERC-721 tickets, ERC-20 payments).
+Event ticketing service on a local Besu QBFT chain (ERC-721 tickets).
 
-## Quick start (milestone 1)
+## Quick start
 
-Start the chain (chain ID 1337, 2 s blocks, free gas):
+Start the chain (chain ID 1337, 2 s blocks, free gas) and Postgres (port 5432):
 
 ```bash
 docker compose -f docker/docker-compose.yaml up -d --wait
 ```
 
-Deploy a plain ERC-721 with a transaction the Go code signs itself and sends with
-`eth_sendRawTransaction`, mint a token and read its owner back:
+Milestone 1: Deploy a plain ERC-721 with a transaction the Go code signs itself and 
+sends with `eth_sendRawTransaction`, mint a token and read its owner back:
 
 ```bash
 go run ./cmd/m1deploy
 ```
 
-Run the tests (the chain tests skip if Besu is not running):
+Milestone 2: the same deploy and mint, but the deployer key is stored encrypted in
+Postgres and each nonce is reserved in the database transaction that saves the
+signed transaction. Run it twice to see the nonces continue:
+
+```bash
+export KEY_ENCRYPTION_KEY=$(openssl rand -base64 32)
+```
+
+```bash
+go run ./cmd/m2demo
+```
+
+`KEY_ENCRYPTION_KEY` only ever comes from the environment, never a file. Keep using
+the same value for as long as the database lives: keys encrypted under one value
+can't be decrypted with another.
+
+Run the tests (chain tests skip if Besu is down, database tests if Postgres is down):
 
 ```bash
 go test ./...
@@ -33,4 +49,8 @@ More commands for inspecting the chain (`cast`, Besu logs, scripts): [docs/dev-t
 | `contracts/build` | Committed ABI and bytecode |
 | `internal/contracts` | Committed abigen v2 bindings, so the service builds without solc |
 | `internal/chain` | Signing, raw transaction send, receipt wait |
+| `internal/db` | Postgres pool and embedded schema migrations (`internal/db/migrations`) |
+| `internal/keystore` | AES-256-GCM encrypted signing keys and nonce reservation |
+| `internal/dbtest` | Test helper: a fresh migrated schema per test |
 | `cmd/m1deploy` | Milestone 1 smoke test |
+| `cmd/m2demo` | Milestone 2 smoke test |

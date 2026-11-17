@@ -1,7 +1,7 @@
 # Developer tools
 
 Commands for inspecting the local Besu chain and working with the contracts.
-All examples assume the dev chain from `docker/docker-compose.yaml` is running:
+All examples assume the dev stack from `docker/docker-compose.yaml` (Besu and Postgres) is running:
 
 ```bash
 docker compose -f docker/docker-compose.yaml up -d --wait
@@ -190,6 +190,47 @@ or `scripts/find_deploys.py` for that.
 `Unable to find sync target. Waiting for 5 peers` is harmless. It's a
 single-node network with discovery off.
 
+## Postgres
+
+The compose Postgres listens on host port **5432**. It has no volume: `docker compose down` 
+wipes it together with the chain, so stored keys and nonces never outlive the chain they belong to.
+
+```bash
+export PGPASSWORD=ticketing
+psql -h localhost -p 5432 -U ticketing -d ticketing
+```
+
+Useful queries:
+
+```sql
+\dt                                         -- tables
+SELECT version FROM schema_migrations;      -- applied migrations
+SELECT purpose, address, next_nonce, length(encrypted_private_key) AS sealed_bytes FROM signing_keys; 
+-- 61 bytes = version + GCM nonce + key + tag
+SELECT nonce, status, block_number, contract_address, tx_hash FROM transactions ORDER BY created_at;
+-- the outbox
+```
+
+Check that a key's database nonce matches the chain:
+
+```bash
+cast nonce <address>    # should equal signing_keys.next_nonce once everything is mined
+```
+
+If the database is ahead, the chain was reset without wiping Postgres. Reset both:
+
+```bash
+docker compose -f docker/docker-compose.yaml down
+```
+
+```bash
+docker compose -f docker/docker-compose.yaml up -d --wait
+```
+
+Tests don't touch the `public` schema. Each one creates its own `test_<random>`
+schema, migrates it and drops it afterwards. Point them at another database with
+`DATABASE_URL`.
+
 ## scripts/find_deploys.py
 
 Lists every deployment of a compiled contract. It scans each block for creation
@@ -278,6 +319,7 @@ the Go service uses the committed bindings.
 
 ```bash
 go run ./cmd/m1deploy    # deploy DemoNFT, mint token 1, verify ownerOf
-go test ./...            # the Besu tests skip if the chain is not running
+KEY_ENCRYPTION_KEY=... go run ./cmd/m2demo   # same, with the key and nonces in Postgres
+go test ./...            # Besu / Postgres tests skip if those aren't running
 BESU_RPC_URL=http://other-host:8545 go test ./internal/chain/
 ```

@@ -54,7 +54,7 @@ func TestDeployMintAndReadBack(t *testing.T) {
 		t.Fatalf("no contract address in receipt %s", rcpt.TxHash)
 	}
 
-	holder := common.HexToAddress("0x000000000000000000000000000000000000bEEF")
+	holder := common.HexToAddress("0x00000000000000000000000000000000c001cafe")
 	if _, err := chain.SendAndWait(ctx, c, owner, &addr, nft.PackSafeMint(holder, testTokenID)); err != nil {
 		t.Fatalf("safeMint: %v", err)
 	}
