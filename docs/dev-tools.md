@@ -136,6 +136,44 @@ Notes:
   deploys no longer match.
 - It uses only the Python standard library. Blocks are fetched in batched JSON-RPC requests.
 
+## scripts/find_minted.py
+
+Lists every ERC-721 mint on the chain, from any contract, with each token's current
+owner. A mint is a `Transfer` event from the zero address, so this uses
+`eth_getLogs` instead of reading every block. It takes well under a second.
+
+```bash
+python3 scripts/find_minted.py                                      # all mints
+python3 scripts/find_minted.py --contract 0x9c4faec1a6dc6331d1408b15d7671edccb35d9c5
+python3 scripts/find_minted.py --to 0x000000000000000000000000000000000000bEEF
+python3 scripts/find_minted.py --from-block 2000
+```
+
+Output:
+
+```
+block 1039  tx 0xbebc…  contract 0x9c4f… 'Demo Ticket' (DEMO)  token 1  to 0xbf9c…
+```
+
+If the token has since moved, the line ends with `now <owner>`, or `now burned`
+if `ownerOf` reverts. That will show resales and check-ins once `TicketNFT` exists.
+
+Notes:
+- ERC-20 `Transfer` events have the same signature hash. The script skips them by
+  keeping only logs with 4 topics, because ERC-721 indexes `tokenId` and ERC-20 doesn't.
+- It doesn't depend on bytecode, so unlike `find_deploys.py` it still finds mints on
+  contracts built before a rebuild.
+- Besu caps one `eth_getLogs` call at 5000 blocks (`--rpc-max-logs-range`), so the
+  script queries in 5000-block chunks.
+- The same query with cast (the topic is `cast keccak "Transfer(address,address,uint256)"`):
+
+  ```bash
+  cast logs --from-block 0 "Transfer(address indexed,address indexed,uint256 indexed)" \
+    0x0000000000000000000000000000000000000000
+  ```
+
+Both scripts share their JSON-RPC helpers through `scripts/ethrpc.py`.
+
 ## contracts/build.sh
 
 Compiles the contracts with Forge and regenerates the Go bindings. Run it from

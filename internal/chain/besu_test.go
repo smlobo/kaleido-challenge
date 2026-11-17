@@ -37,6 +37,8 @@ func TestDeployMintAndReadBack(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
+	testTokenID := big.NewInt(1111)
+
 	// A brand-new key with zero balance: gas is free on this chain.
 	owner, err := chain.GenerateSigner(c.ChainID())
 	if err != nil {
@@ -53,17 +55,17 @@ func TestDeployMintAndReadBack(t *testing.T) {
 	}
 
 	holder := common.HexToAddress("0x000000000000000000000000000000000000bEEF")
-	if _, err := chain.SendAndWait(ctx, c, owner, &addr, nft.PackSafeMint(holder, big.NewInt(42))); err != nil {
+	if _, err := chain.SendAndWait(ctx, c, owner, &addr, nft.PackSafeMint(holder, testTokenID)); err != nil {
 		t.Fatalf("safeMint: %v", err)
 	}
 
 	got, err := bind.Call(nft.Instance(c.Eth(), addr), &bind.CallOpts{Context: ctx},
-		nft.PackOwnerOf(big.NewInt(42)), nft.UnpackOwnerOf)
+		nft.PackOwnerOf(testTokenID), nft.UnpackOwnerOf)
 	if err != nil {
 		t.Fatalf("ownerOf: %v", err)
 	}
 	if got != holder {
-		t.Fatalf("ownerOf(42) = %s, want %s", got, holder)
+		t.Fatalf("ownerOf(1111) = %s, want %s", got, holder)
 	}
 }
 

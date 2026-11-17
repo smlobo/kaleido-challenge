@@ -40,3 +40,6 @@ contracts/cache/
 # Logs
 /log
 
+# python
+__pycache__/
+
