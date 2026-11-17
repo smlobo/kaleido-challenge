@@ -29,9 +29,10 @@ cast block 1039 -f timestamp  # one field of a block
 cast block 1039 --json | jq '.data.transactions'   # tx hashes in a block
 ```
 
-Note: `cast --json` output in Foundry 1.9 wraps the result in `{"data": ...}`.
+Note: in Foundry 1.9, `cast block --json`, `cast tx --json` and `cast wallet new --json`
+wrap the result in `{"data": ...}`. `cast receipt --json` doesn't.
 
-### Transactions and receipts
+### Transactions
 
 ```bash
 TX=0xbebc550c644ccd42991fd6c7f8defdbcfa56fd81927723c23f392c29af714683
@@ -40,8 +41,6 @@ cast tx $TX                      # full transaction
 cast tx $TX type                 # 0x2 = EIP-1559
 cast tx $TX nonce
 cast tx $TX blockNumber
-cast receipt $TX status          # true = success
-cast receipt 0xe83fe5a0734ec78f5bb5a7f5aa8e76afe7940892901271a3d56b6eb013ac6280 contractAddress
 ```
 
 Decode what a transaction called:
@@ -50,6 +49,88 @@ Decode what a transaction called:
 cast 4byte-decode $(cast tx $TX input)                               # looks up the selector online
 cast calldata-decode "safeMint(address,uint256)" $(cast tx $TX input)  # offline, with a known signature
 ```
+
+### Receipts
+
+The transaction (`cast tx`) is what was signed and sent. The receipt is what
+happened when it ran: success or failure, gas used, the new contract address, and the
+events it emitted. QBFT blocks are final as soon as they're made, so one receipt is
+the final answer. This is what `chain.WaitMined` polls for.
+
+```bash
+DEPLOY=0xec114cc9aab4d3f1f85ec1fd728ddc10340c272af3da7426a8d5c6d83215ed2d
+MINT=0x58afc1c2d15d59513393bacf1f443e88f30304cb25b6fc20917375ed0aa10c0a
+
+cast receipt $DEPLOY                  # all fields
+cast receipt $DEPLOY status           # true / false
+cast receipt $DEPLOY contractAddress  # set only for a contract creation
+cast receipt $DEPLOY gasUsed          # actual gas, at most the tx's gasLimit
+cast receipt $MINT logs               # events emitted, as JSON
+cast receipt $MINT --json | jq '.logs[0].topics'
+```
+
+`cast receipt` waits until the transaction is mined. Add `--async` to return
+immediately for a transaction that's still pending.
+
+Fields for the `m1deploy` deploy above:
+
+| Field | Example | Meaning |
+|---|---|---|
+| `status` | `1 (success)` | `0` means it reverted. All state changes are undone, but it still uses a nonce and appears in the block |
+| `contractAddress` | `0xfb2c…f4d7` | Address of the new contract. Empty for a normal call |
+| `gasUsed` | 1,052,698 | Gas this transaction actually used. `m1deploy` sets `gasLimit` to the estimate + 20% (1,274,664) |
+| `cumulativeGasUsed` | 1,052,698 | Gas used by this and all earlier transactions in the block. Equal to `gasUsed` when it's first in the block |
+| `effectiveGasPrice` | 0 | Price paid per unit of gas. Always 0 on this chain |
+| `logs` | 1 entry | Events. The deploy emits `OwnershipTransferred(0x0 → deployer)` from the `Ownable` constructor |
+| `logsBloom` | `0x0000…` | A compact filter that lets `eth_getLogs` skip blocks that can't contain a matching event |
+| `root`, `blobGasUsed`, `blobGasPrice` | empty | Not used here (pre-Byzantium state root; EIP-4844 blob transactions) |
+
+#### Reading logs
+
+Each log has the emitting contract's `address`, up to 4 `topics` and `data`. `topics[0]` is
+the event signature hash. The rest are the `indexed` parameters, each padded to 32 bytes.
+The mint's `Transfer` log:
+
+```
+address  0xfb2c4d7720fd5ec5c579ef7dbc7ef08d92a4f4d7   the DemoNFT
+topics   0xddf252ad…b3ef   keccak("Transfer(address,address,uint256)")
+         0x0000…0000       from    = zero address, so it's a mint
+         0x0000…7223e0a    to      = 0x05cf9cedfd7f42eae4b768b824c01efaf7223e0a
+         0x0000…0001       tokenId = 1
+data     0x                nothing un-indexed
+```
+
+To get the signature hash of any event:
+
+```bash
+cast keccak "Transfer(address,address,uint256)"
+```
+
+#### Failed transactions
+
+Besu runs with `--revert-reason-enabled`, so a failed receipt carries the encoded
+error. Example: a stranger calling `safeMint` with an explicit gas limit, so that gas
+estimation doesn't catch the revert before sending:
+
+```bash
+FAILED=0x0dcf127cfbfa2d68056de3d6c6e115ed3e2fa16ade30b89c16897d76b8937612
+
+cast receipt $FAILED --json | jq '{status, revertReason, gasUsed}'
+# {"status":"0x0","revertReason":"0x118cdaa7000…755a9774…","gasUsed":"0x5db6"}
+
+cast 4byte 0x118cdaa7         # OwnableUnauthorizedAccount(address)
+cast decode-error 0x118cdaa7000000000000000000000000755a9774ec3f90ea08abd61076ccd63bfacba6d6 \
+  --sig "OwnableUnauthorizedAccount(address)"
+
+cast run $FAILED              # replays it with a call trace ending in the revert
+```
+
+The first 4 bytes of `revertReason` are the custom error's selector, and the rest are its
+ABI-encoded arguments. The Go code rarely sees a failed receipt, because
+`eth_estimateGas` simulates the call first and returns the revert before anything is
+signed. A transaction can still fail on-chain if the state changes between the
+estimate and the block, for example if another buyer takes the last ticket. That's the
+reason `WaitMined` checks `status`.
 
 ### Reading contracts
 
