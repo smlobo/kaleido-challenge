@@ -10,7 +10,6 @@ import {TicketNFT} from "../src/TicketNFT.sol";
 contract TicketNFTTest is Test {
     TicketNFT ticketnft;
 
-    address admin = makeAddr("admin");
     address boxOffice = makeAddr("boxOffice");
     address gate = makeAddr("gate");
     address alice = makeAddr("alice");
@@ -39,7 +38,7 @@ contract TicketNFTTest is Test {
     }
 
     function _deploy(uint32 supply, uint64 eventStart) internal returns (TicketNFT) {
-        return new TicketNFT("Rock Fest", "ROCK", supply, RESALE_BPS, eventStart, BASE_URL, admin, boxOffice, gate);
+        return new TicketNFT("Rock Fest", "ROCK", supply, RESALE_BPS, eventStart, BASE_URL, boxOffice, gate);
     }
 
     function _mintAsBoxOffice(address to, uint256 tokenId) internal {
@@ -60,10 +59,43 @@ contract TicketNFTTest is Test {
         assertEq(ticketnft.maxSupply(), SUPPLY);
         assertEq(ticketnft.maxResaleBps(), RESALE_BPS);
         assertEq(ticketnft.eventStart(), start);
-        assertTrue(ticketnft.hasRole(ticketnft.DEFAULT_ADMIN_ROLE(), admin));
+        assertTrue(ticketnft.hasRole(ticketnft.DEFAULT_ADMIN_ROLE(), boxOffice));
         assertTrue(ticketnft.hasRole(ticketnft.MINTER_ROLE(), boxOffice));
         assertTrue(ticketnft.hasRole(ticketnft.GATE_ROLE(), gate));
-        assertFalse(ticketnft.hasRole(ticketnft.MINTER_ROLE(), admin), "admin is not a minter by default");
+        assertFalse(ticketnft.hasRole(ticketnft.DEFAULT_ADMIN_ROLE(), gate), "gate is not admin");
+    }
+
+    // The test contract deployed ticketnft, so it plays the platform deployer.
+    function test_Deployer_HasNoRole() public view {
+        address deployer = address(this);
+        assertFalse(ticketnft.hasRole(ticketnft.DEFAULT_ADMIN_ROLE(), deployer));
+        assertFalse(ticketnft.hasRole(ticketnft.MINTER_ROLE(), deployer));
+        assertFalse(ticketnft.hasRole(ticketnft.GATE_ROLE(), deployer));
+    }
+
+    function test_Deployer_CannotGrantItselfMinter() public {
+        bytes32 minterRole = ticketnft.MINTER_ROLE();
+        bytes32 adminRole = ticketnft.DEFAULT_ADMIN_ROLE();
+        vm.expectRevert(
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, address(this), adminRole)
+        );
+        ticketnft.grantRole(minterRole, address(this));
+    }
+
+    function test_BoxOffice_CanReplaceGate() public {
+        address newGate = makeAddr("newGate");
+        bytes32 gateRole = ticketnft.GATE_ROLE();
+        vm.startPrank(boxOffice);
+        ticketnft.revokeRole(gateRole, gate);
+        ticketnft.grantRole(gateRole, newGate);
+        vm.stopPrank();
+        assertFalse(ticketnft.hasRole(gateRole, gate));
+        assertTrue(ticketnft.hasRole(gateRole, newGate));
+
+        _mintAsBoxOffice(alice, 1);
+        vm.prank(newGate);
+        ticketnft.checkIn(1);
+        assertEq(ticketnft.balanceOf(alice), 0);
     }
 
     function test_Constructor_RejectsBadConfig() public {
@@ -74,7 +106,7 @@ contract TicketNFTTest is Test {
         _deploy(SUPPLY, uint64(block.timestamp)); // start must be in the future
 
         vm.expectRevert(TicketNFT.InvalidConfig.selector);
-        new TicketNFT("x", "X", 1, RESALE_BPS, start, "", admin, address(0), gate);
+        new TicketNFT("x", "X", 1, RESALE_BPS, start, "", address(0), gate);
     }
 
     function test_SupportsInterfaces() public view {

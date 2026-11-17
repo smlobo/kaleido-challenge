@@ -160,6 +160,7 @@ cast call $TICKET "mintedCount()(uint32)"
 cast call $TICKET "maxSupply()(uint32)"
 cast call $TICKET "eventStart()(uint64)"
 cast call $TICKET "hasRole(bytes32,address)(bool)" $(cast keccak MINTER_ROLE) 0x...box-office-address
+cast call $TICKET "hasRole(bytes32,address)(bool)" $(cast hash-zero) 0x...box-office-address   # DEFAULT_ADMIN_ROLE is all zeros: true for the box office, false for the deployer
 ```
 
 TicketNFT reverts with custom errors. A failed `eth_estimateGas` or `eth_call`

@@ -25,6 +25,7 @@ type ticketEvent struct {
 	c               *chain.Client
 	nft             *ticketnft.TicketNFT
 	addr            common.Address
+	deployer        *chain.Signer
 	boxOffice, gate *chain.Signer
 	alice, bob      *chain.Signer
 }
@@ -36,13 +37,12 @@ func deployTicketEvent(ctx context.Context, t *testing.T, c *chain.Client) *tick
 		keys[i], _ = chain.GenerateSigner(c.ChainID())
 	}
 	e := &ticketEvent{c: c, nft: ticketnft.NewTicketNFT(),
-		boxOffice: keys[1], gate: keys[2], alice: keys[3], bob: keys[4]}
-	deployer := keys[0]
+		deployer: keys[0], boxOffice: keys[1], gate: keys[2], alice: keys[3], bob: keys[4]}
 
 	start := uint64(time.Now().Add(time.Hour).Unix())
-	addr, _, err := chain.Deploy(ctx, c, deployer, common.FromHex(ticketnft.TicketNFTMetaData.Bin),
+	addr, _, err := chain.Deploy(ctx, c, e.deployer, common.FromHex(ticketnft.TicketNFTMetaData.Bin),
 		e.nft.PackConstructor("Go Test Fest", "GTF", 100, 11_000, start, "http://localhost:8080/tickets/",
-			deployer.Address(), e.boxOffice.Address(), e.gate.Address()))
+			e.boxOffice.Address(), e.gate.Address()))
 	if err != nil {
 		t.Fatalf("deploy: %v", err)
 	}
@@ -167,5 +167,15 @@ func TestTicketNFTRevertsDecodeInGo(t *testing.T) {
 	if got, ok := decode(e.bob, e.nft.PackMintTicket(e.bob.Address(), big.NewInt(8), faceValue, common.Hash{1})).(*ticketnft.TicketNFTAccessControlUnauthorizedAccount); !ok ||
 		got.Account != e.bob.Address() {
 		t.Errorf("mint by non-minter: got %#v", got)
+	}
+
+	// The box office, not the deployer, is admin: the deployer can't grant itself minting
+	minterRole := crypto.Keccak256Hash([]byte("MINTER_ROLE"))
+	if got, ok := decode(e.deployer, e.nft.PackGrantRole(minterRole, e.deployer.Address())).(*ticketnft.TicketNFTAccessControlUnauthorizedAccount); !ok ||
+		got.Account != e.deployer.Address() || got.NeededRole != [32]byte{} {
+		t.Errorf("deployer grants itself minter: got %#v", got)
+	}
+	if _, err := c.EstimateGas(ctx, e.boxOffice.Address(), &e.addr, nil, e.nft.PackGrantRole(minterRole, e.bob.Address())); err != nil {
+		t.Errorf("box office grants minter: %v", err)
 	}
 }

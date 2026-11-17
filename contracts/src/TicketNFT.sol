@@ -15,6 +15,10 @@ import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 /// functions; buyResale is the only way a ticket changes hands, so the resale
 /// cap cannot be bypassed.
 ///
+/// The box office is also the admin (DEFAULT_ADMIN_ROLE), so the organizer
+/// controls its own event: it can replace its gate key or add another minter.
+/// The platform key that deploys the contract holds no role in it.
+///
 /// No money moves yet: prices are checked and recorded, and payment is
 /// collected off-chain. On-chain payment (TicketUSD) is a later milestone.
 contract TicketNFT is ERC721, AccessControl {
@@ -58,9 +62,10 @@ contract TicketNFT is ERC721, AccessControl {
     error BuyerIsSeller();
     error TransfersDisabled();
 
-    /// @param admin   gets DEFAULT_ADMIN_ROLE (the platform deployer)
-    /// @param minter  gets MINTER_ROLE (the organizer's box office key)
-    /// @param gate    gets GATE_ROLE (the organizer's gate key)
+    /// @param boxOffice gets MINTER_ROLE and DEFAULT_ADMIN_ROLE (the organizer's
+    ///                  box office key). The deployer gets no role, so once the
+    ///                  contract is deployed only the organizer can change roles.
+    /// @param gate      gets GATE_ROLE (the organizer's gate key)
     constructor(
         string memory name_,
         string memory symbol_,
@@ -68,20 +73,19 @@ contract TicketNFT is ERC721, AccessControl {
         uint32 maxResaleBps_,
         uint64 eventStart_,
         string memory baseURI_,
-        address admin,
-        address minter,
+        address boxOffice,
         address gate
     ) ERC721(name_, symbol_) {
         // Block timestamps can drift by seconds; that is fine for an event start.
         // forge-lint: disable-next-line(block-timestamp)
         if (maxSupply_ == 0 || eventStart_ <= block.timestamp) revert InvalidConfig();
-        if (admin == address(0) || minter == address(0) || gate == address(0)) revert InvalidConfig();
+        if (boxOffice == address(0) || gate == address(0)) revert InvalidConfig();
         maxSupply = maxSupply_;
         maxResaleBps = maxResaleBps_;
         eventStart = eventStart_;
         _base = baseURI_;
-        _grantRole(DEFAULT_ADMIN_ROLE, admin);
-        _grantRole(MINTER_ROLE, minter);
+        _grantRole(DEFAULT_ADMIN_ROLE, boxOffice);
+        _grantRole(MINTER_ROLE, boxOffice);
         _grantRole(GATE_ROLE, gate);
     }
 
