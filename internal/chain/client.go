@@ -2,6 +2,7 @@ package chain
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -86,6 +87,29 @@ func (c *Client) SendRaw(ctx context.Context, tx *types.Transaction) (common.Has
 		return hash, fmt.Errorf("node returned hash %s, expected %s", hash, tx.Hash())
 	}
 	return hash, nil
+}
+
+// Receipt returns a transaction's receipt, or nil if it is not mined yet.
+// For a failed transaction, revertReason is what Besu (started with
+// --revert-reason-enabled) puts in the receipt's revertReason field: the
+// hex-encoded revert data. go-ethereum's Receipt type drops that field.
+func (c *Client) Receipt(ctx context.Context, hash common.Hash) (rcpt *types.Receipt, revertReason string, err error) {
+	var raw json.RawMessage
+	if err := c.rpc.CallContext(ctx, &raw, "eth_getTransactionReceipt", hash); err != nil {
+		return nil, "", fmt.Errorf("eth_getTransactionReceipt: %w", err)
+	}
+	if len(raw) == 0 || string(raw) == "null" {
+		return nil, "", nil
+	}
+	rcpt = new(types.Receipt)
+	if err := json.Unmarshal(raw, rcpt); err != nil {
+		return nil, "", fmt.Errorf("decode receipt: %w", err)
+	}
+	var besu struct {
+		RevertReason string `json:"revertReason"`
+	}
+	_ = json.Unmarshal(raw, &besu)
+	return rcpt, besu.RevertReason, nil
 }
 
 // ErrReverted is returned by WaitMined when the transaction was mined but failed.

@@ -3,6 +3,8 @@ package db_test
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgconn"
@@ -21,6 +23,11 @@ func TestMigrateIsIdempotent(t *testing.T) {
 		t.Fatalf("second Migrate applied %v, want nothing", applied)
 	}
 }
+
+// fakeHash repeats one hex digit into a value the eth_hash domain accepts
+// (0x + 64 lowercase hex). Different digits give different hashes, since
+// tx_hash is unique.
+func fakeHash(digit string) string { return "0x" + strings.Repeat(digit, 64) }
 
 // Postgres SQLSTATE codes for the two kinds of constraint tested here.
 const (
@@ -59,6 +66,12 @@ func TestSchemaRejectsBadValues(t *testing.T) {
 				VALUES ('0x00000000000000000000000000000000000000bb', 'wallet', '\x00', -1)`,
 			code: checkViolation, constraint: "signing_keys_next_nonce_check",
 		},
+		"second live transaction at a nonce": {
+			sql: fmt.Sprintf(`INSERT INTO transactions (from_address, nonce, calldata, raw_tx, tx_hash) VALUES
+				('0x00000000000000000000000000000000000000cc', 7, '\x', '\x', '%s'),
+				('0x00000000000000000000000000000000000000cc', 7, '\x', '\x', '%s')`, fakeHash("a"), fakeHash("b")),
+			code: uniqueViolation, constraint: "transactions_live_nonce",
+		},
 	} {
 		_, err := pool.Exec(ctx, tc.sql)
 		var pgErr *pgconn.PgError
@@ -71,5 +84,25 @@ func TestSchemaRejectsBadValues(t *testing.T) {
 			t.Errorf("%s: got %s on %q (%s), want %s on %q",
 				name, pgErr.Code, pgErr.ConstraintName, pgErr.Message, tc.code, tc.constraint)
 		}
+	}
+}
+
+// A failed transaction gives up its nonce: the outbox's filler takes it.
+func TestFailedTransactionFreesItsNonce(t *testing.T) {
+	pool := dbtest.Pool(t)
+	ctx := context.Background()
+	insert := func(hash, status string) error {
+		_, err := pool.Exec(ctx, `INSERT INTO transactions (from_address, nonce, calldata, raw_tx, tx_hash, status)
+			VALUES ('0x00000000000000000000000000000000000000dd', 3, '\x', '\x', $1, $2)`, fakeHash(hash), status)
+		return err
+	}
+	if err := insert("a", "failed"); err != nil {
+		t.Fatal(err)
+	}
+	if err := insert("b", "signed"); err != nil {
+		t.Fatalf("filler at a failed row's nonce: %v", err)
+	}
+	if err := insert("c", "signed"); err == nil {
+		t.Fatal("second live transaction at the same nonce was accepted")
 	}
 }

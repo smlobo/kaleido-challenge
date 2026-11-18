@@ -235,7 +235,18 @@ SELECT purpose, address, next_nonce, length(encrypted_private_key) AS sealed_byt
 -- 61 bytes = version + GCM nonce + key + tag
 SELECT nonce, status, block_number, contract_address, tx_hash FROM transactions ORDER BY created_at;
 -- the outbox
+SELECT from_address, nonce, status, attempts, next_attempt_at, last_error FROM transactions
+WHERE status IN ('signed', 'submitted') ORDER BY from_address, nonce;
+-- work the submitter and receipt loops still have to do
+SELECT nonce, status, revert_reason, last_error FROM transactions WHERE status IN ('reverted', 'failed');
+-- what went wrong; decode a revert_reason with cast decode-error
 ```
+
+An outbox row moves `signed` → `submitted` → `mined` or `reverted`. `failed`
+means it will never be mined: the node rejected it (bad gas limit, wrong chain),
+or its nonce was used by a transaction sent outside the outbox. A rejected row's
+nonce is then taken by a zero-value transfer to self (to the sender, empty
+calldata), so later transactions from that key aren't stuck behind the gap.
 
 Check that a key's database nonce matches the chain:
 
@@ -356,6 +367,9 @@ OpenZeppelin, so there is no git submodule.
 ```bash
 go run ./cmd/m1deploy    # deploy DemoNFT, mint token 1, verify ownerOf
 KEY_ENCRYPTION_KEY=... go run ./cmd/m2demo   # same, with the key and nonces in Postgres
+KEY_ENCRYPTION_KEY=... go run ./cmd/m4demo   # deploy TicketNFT and mint through the outbox loops
+KEY_ENCRYPTION_KEY=... go run ./cmd/m4demo -crash   # stop after commit; the next run finishes the rows
+go test -count=1 -v -run Besu ./internal/outbox/   # the outbox against Besu: revert reasons, nonce gaps, resends
 go test ./...            # Besu / Postgres tests skip if those aren't running
 go test -count=1 ./...   # bypass Go's test cache so the chain tests really deploy
 go test -count=1 -v -run TestTicketNFT ./internal/chain/   # TicketNFT lifecycle on Besu

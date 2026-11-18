@@ -41,6 +41,23 @@ the only way a ticket moves. Run the contract tests (needs Foundry):
 cd contracts && forge test
 ```
 
+Milestone 4: the transaction outbox. Every transaction is signed and saved to
+Postgres before it is sent. A submitter loop sends anything not yet sent (after a
+crash, say) and resends anything stuck, and a receipt loop records each result,
+with the revert reason for a failed call. Any number of instances can run the
+loops: `FOR UPDATE SKIP LOCKED` hands each row to one worker at a time. The demo
+deploys a TicketNFT and commits six mints, one of them a duplicate that reverts,
+without sending them; the loops do the rest. With `-crash` it exits before
+sending, and the next run finishes the job:
+
+```bash
+go run ./cmd/m4demo -crash
+```
+
+```bash
+go run ./cmd/m4demo
+```
+
 Run the Go tests (chain tests skip if Besu is down, database tests if Postgres is
 down; `-count=1` skips Go's test cache):
 
@@ -59,9 +76,11 @@ More commands for inspecting the chain (`cast`, Besu logs, scripts): [docs/dev-t
 | `contracts/build.sh` | Compiles with Foundry (`forge build`) and regenerates the Go bindings |
 | `contracts/build` | Committed ABI and bytecode |
 | `internal/contracts` | Committed abigen v2 bindings, so the service builds without solc |
-| `internal/chain` | Signing, raw transaction send, receipt wait |
+| `internal/chain` | Signing, raw transaction send, receipts (with Besu's revert reason) |
 | `internal/db` | Postgres pool and embedded schema migrations (`internal/db/migrations`) |
 | `internal/keystore` | AES-256-GCM encrypted signing keys and nonce reservation |
+| `internal/outbox` | Transaction outbox: enqueue, send, submitter and receipt loops |
 | `internal/dbtest` | Test helper: a fresh migrated schema per test |
 | `cmd/m1deploy` | Milestone 1 smoke test |
 | `cmd/m2demo` | Milestone 2 smoke test |
+| `cmd/m4demo` | Milestone 4 smoke test |
