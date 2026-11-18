@@ -17,7 +17,8 @@ const KEKSize = 32
 // changed later without guessing what an old row holds.
 const formatV1 byte = 1
 
-var errDecrypt = errors.New("keystore: cannot decrypt private key (wrong KEY_ENCRYPTION_KEY, or the row was altered)")
+// ErrDecrypt means a stored key could not be decrypted with this KEK.
+var ErrDecrypt = errors.New("keystore: cannot decrypt private key (wrong KEY_ENCRYPTION_KEY, or the row was altered)")
 
 // ParseKEK decodes KEY_ENCRYPTION_KEY: 32 bytes, base64 (standard or URL, padding optional).
 // Generate one with: openssl rand -base64 32
@@ -71,11 +72,11 @@ func (s *sealer) seal(plaintext []byte, address string) ([]byte, error) {
 func (s *sealer) open(sealed []byte, address string) ([]byte, error) {
 	ns := s.aead.NonceSize()
 	if len(sealed) < 1+ns+s.aead.Overhead() || sealed[0] != formatV1 {
-		return nil, errDecrypt
+		return nil, ErrDecrypt
 	}
 	pt, err := s.aead.Open(nil, sealed[1:1+ns], sealed[1+ns:], aad(address))
 	if err != nil {
-		return nil, errDecrypt
+		return nil, ErrDecrypt
 	}
 	return pt, nil
 }
