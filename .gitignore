@@ -43,3 +43,6 @@ contracts/cache/
 # python
 __pycache__/
 
+# go build exe for this repo (root only: internal/ticketing and cmd/ticketing are source)
+/ticketing
+

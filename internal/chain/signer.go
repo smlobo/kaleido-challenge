@@ -52,6 +52,18 @@ func GenerateSigner(chainID *big.Int) (*Signer, error) {
 // Address is the account this signer sends from.
 func (s *Signer) Address() common.Address { return s.address }
 
+// SignHash signs a 32-byte digest, such as an EIP-712 message hash, and
+// returns the 65-byte r ‖ s ‖ v signature that Solidity's ecrecover and
+// OpenZeppelin's ECDSA expect (v is 27 or 28). It sends nothing.
+func (s *Signer) SignHash(digest common.Hash) ([]byte, error) {
+	sig, err := crypto.Sign(digest[:], s.key)
+	if err != nil {
+		return nil, err
+	}
+	sig[64] += 27 // crypto.Sign gives v as 0 or 1
+	return sig, nil
+}
+
 // TxRequest describes an unsigned call or deployment. A nil To deploys a contract.
 type TxRequest struct {
 	Nonce uint64

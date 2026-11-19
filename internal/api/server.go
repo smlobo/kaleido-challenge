@@ -237,8 +237,29 @@ func (s *Server) GetTicket(w http.ResponseWriter, r *http.Request, id TicketID) 
 	s.writeTicket(w, r, http.StatusOK, t)
 }
 
+func (s *Server) CreatePass(w http.ResponseWriter, r *http.Request, id TicketID) {
+	p, err := s.svc.CreatePass(r.Context(), caller(r), id.String())
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, CheckInPass{
+		TicketId: uuid.MustParse(p.TicketID), TokenId: p.TokenID, ContractAddress: p.Contract,
+		ChainId: p.ChainID.Int64(), Deadline: p.Deadline.Unix(), ExpiresAt: p.Deadline.UTC(),
+		Signature: p.Signature,
+	})
+}
+
 func (s *Server) CheckIn(w http.ResponseWriter, r *http.Request, id TicketID, params CheckInParams) {
-	t, err := s.svc.CheckIn(r.Context(), caller(r), id.String(), params.IdempotencyKey)
+	var in CheckInRequest
+	if !decode(w, r, &in) {
+		return
+	}
+	pass := ticketing.PassInput{Deadline: in.Deadline, Signature: in.Signature}
+	if in.TicketId != nil {
+		pass.TicketID = in.TicketId.String()
+	}
+	t, err := s.svc.CheckIn(r.Context(), caller(r), id.String(), pass, params.IdempotencyKey)
 	if err != nil {
 		s.fail(w, r, err)
 		return

@@ -241,6 +241,67 @@ components:
           type: string
           format: uuid
 
+    CheckInPass:
+      type: object
+      description: >
+        A holder's signed permission to check one ticket in (EIP-712, type
+        `CheckIn(uint256 tokenId,uint256 deadline)`, domain name `TicketNFT`,
+        version `1`, this chain and the event's contract). The holder shows it
+        at the door; the gate sends it as the check-in body, and the contract
+        burns the ticket only if its current holder signed it.
+      required: [ticket_id, token_id, contract_address, chain_id, deadline, expires_at, signature]
+      properties:
+        ticket_id:
+          type: string
+          format: uuid
+        token_id:
+          $ref: "#/components/schemas/Uint256"
+        contract_address:
+          $ref: "#/components/schemas/Address"
+        chain_id:
+          type: integer
+          format: int64
+          example: 1337
+        deadline:
+          type: integer
+          format: int64
+          description: Valid until this unix time, in seconds (five minutes after it was made).
+        expires_at:
+          type: string
+          format: date-time
+          description: The deadline as a timestamp, for people.
+        signature:
+          type: string
+          pattern: "^0x[0-9a-fA-F]{130}$"
+          description: The holder's 65-byte signature, r ‖ s ‖ v.
+
+    CheckInRequest:
+      type: object
+      description: >
+        The pass, as the holder showed it. Only `deadline` and `signature` are
+        needed; `ticket_id`, if sent, must be the ticket in the path, and the
+        other fields of a pass are accepted and ignored.
+      required: [deadline, signature]
+      properties:
+        ticket_id:
+          type: string
+          format: uuid
+        token_id:
+          $ref: "#/components/schemas/Uint256"
+        contract_address:
+          $ref: "#/components/schemas/Address"
+        chain_id:
+          type: integer
+          format: int64
+        deadline:
+          type: integer
+          format: int64
+        expires_at:
+          type: string
+          format: date-time
+        signature:
+          type: string
+
     Ticket:
       type: object
       required: [id, event_id, token_id, status, record, record_hash, metadata_url, mint_operation_id]
@@ -487,17 +548,57 @@ paths:
         "404":
           $ref: "#/components/responses/Problem"
 
+  /tickets/{id}/pass:
+    post:
+      tags: [Tickets]
+      operationId: createPass
+      summary: Make a check-in pass for your ticket
+      description: >
+        The holder asks for this at the door. The service signs the pass with
+        the holder's custodial wallet key; nothing is sent to the chain. The
+        pass is valid for five minutes and works once.
+      security:
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/TicketID"
+      responses:
+        "200":
+          description: The pass, to show at the door (for example as a QR code).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckInPass"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+
   /tickets/{id}/check-in:
     post:
       tags: [Tickets]
       operationId: checkIn
       summary: Check a ticket in at the gate
-      description: The organizer's gate key burns the ticket.
+      description: >
+        The organizer's gate key burns the ticket, carrying the holder's pass
+        from POST /tickets/{id}/pass. Both are checked on-chain: the gate role
+        by the transaction's sender, the holder by the pass's signature.
       security:
         - bearer: []
       parameters:
         - $ref: "#/components/parameters/TicketID"
         - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CheckInRequest"
       responses:
         "202":
           description: Saved; the check-in is on its way.

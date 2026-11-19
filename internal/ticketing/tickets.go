@@ -133,9 +133,10 @@ func (s *Service) BuyTicket(ctx context.Context, p Principal, eventID, key strin
 	return s.GetTicket(ctx, ticketID)
 }
 
-// CheckIn signs a checkIn (burn) of the ticket with the organizer's gate key.
-// Only the event's organizer may, and only once.
-func (s *Service) CheckIn(ctx context.Context, p Principal, ticketID, key string) (Ticket, error) {
+// CheckIn signs a checkIn (burn) of the ticket with the organizer's gate key,
+// carrying the holder's pass (from CreatePass). Only the event's organizer
+// may, and only once; the contract also requires the holder's signature.
+func (s *Service) CheckIn(ctx context.Context, p Principal, ticketID string, pass PassInput, key string) (Ticket, error) {
 	if err := need(p, Organizer); err != nil {
 		return Ticket{}, err
 	}
@@ -146,9 +147,15 @@ func (s *Service) CheckIn(ctx context.Context, p Principal, ticketID, key string
 	if id, found, err := s.opByIdemKey(ctx, idem); err != nil || found {
 		return s.ticketByOp(ctx, "checkin_tx_id", id, err)
 	}
+	// After the repeat check: a retry of a check-in already saved must not
+	// fail just because its pass has since expired.
+	deadline, sig, err := s.parsePass(ticketID, pass)
+	if err != nil {
+		return Ticket{}, err
+	}
 
 	var op outbox.Op
-	err := pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
+	err = pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
 		// Lock the ticket, so two check-ins of it cannot both pass the checks.
 		var (
 			organizerID, status, tokenID, gateID, gate, contract string
@@ -172,18 +179,18 @@ func (s *Service) CheckIn(ctx context.Context, p Principal, ticketID, key string
 		case organizerID != p.ID:
 			return fail(Forbidden, "not_your_event", "Not your event", "Only the event's organizer can check its tickets in.")
 		case status == "pending_mint":
-			return fail(Conflict, "not_minted_yet", "Not minted yet", "The ticket's mint is not mined yet; try again in a few seconds.")
+			return errNotMintedYet
 		case status == "failed":
-			return fail(Rejected, "ticket_failed", "Ticket failed", "The ticket's mint failed, so there is nothing to check in.")
+			return errTicketFailed
 		case status == "checked_in":
-			return fail(Conflict, "already_checked_in", "Already checked in", "This ticket has already been checked in.")
+			return errAlreadyCheckedIn
 		case checkinStatus != nil && *checkinStatus != string(outbox.Reverted) && *checkinStatus != string(outbox.Failed):
 			return fail(Conflict, "already_checked_in", "Already checked in", "A check-in of this ticket is already on its way.")
 		}
 
 		to := common.HexToAddress(contract)
 		token, _ := new(big.Int).SetString(tokenID, 10)
-		data := s.nft.PackCheckIn(token)
+		data := s.nft.PackCheckIn(token, deadline, sig)
 		if err := s.precheck(ctx, common.HexToAddress(gate), &to, data); err != nil {
 			return err
 		}
@@ -210,6 +217,12 @@ func (s *Service) CheckIn(ctx context.Context, p Principal, ticketID, key string
 	s.send(ctx, op.ID)
 	return s.GetTicket(ctx, ticketID)
 }
+
+var (
+	errNotMintedYet     = fail(Conflict, "not_minted_yet", "Not minted yet", "The ticket's mint is not mined yet; try again in a few seconds.")
+	errTicketFailed     = fail(Rejected, "ticket_failed", "Ticket failed", "The ticket's mint failed, so there is nothing to check in.")
+	errAlreadyCheckedIn = fail(Conflict, "already_checked_in", "Already checked in", "This ticket has already been checked in.")
+)
 
 func (s *Service) ticketByOp(ctx context.Context, column, opID string, err error) (Ticket, error) {
 	if err != nil {

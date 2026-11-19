@@ -34,7 +34,8 @@ can't be decrypted with another.
 
 Milestone 3: the TicketNFT contract, one per event. The box office mints, holders
 list at no more than the resale cap, anyone buys a listed ticket, and the gate burns
-it at check-in. Standard ERC-721 transfers and approvals are disabled, so resale is
+it at check-in, carrying a pass the holder signed (EIP-712), so both the organizer
+and the holder authorize the check-in on-chain. Standard ERC-721 transfers and approvals are disabled, so resale is
 the only way a ticket moves. Run the contract tests (needs Foundry):
 
 ```bash
@@ -79,7 +80,8 @@ Milestone 6: events, tickets and check-in over HTTP. An admin creates an
 organizer (with `ADMIN_TOKEN`), anyone creates a user, the organizer creates an
 event (its TicketNFT is deployed through the outbox), a user buys tickets (the
 organizer's box office mints them to the user's wallet), and the organizer
-checks a ticket in (the gate key burns it). Writes answer `202` with an
+checks a ticket in with a pass the holder makes at the door (the gate key burns
+it, and the contract checks the holder signed the pass). Writes answer `202` with an
 operation ID and need an `Idempotency-Key` header; `GET /operations/{id}`
 reports the result. The spec is
 [internal/api/openapi.yaml](internal/api/openapi.yaml), with Swagger UI at
@@ -97,7 +99,7 @@ Exercise all endpoints:
 ./scripts/create_user.py alice
 ./scripts/create_event.py "Rock Fest 2027" --token <org-token>
 ./scripts/buy_ticket.py <event-id> --token <alice-token>
-./scripts/check_in.py <ticket-id> --token <org-token>
+./scripts/create_pass.py <ticket-id> --token <alice-token> | ./scripts/check_in.py <ticket-id> --token <org-token> --pass -
 ./scripts/get_operation.py OPERATION_ID --token <respective-token>
 curl localhost:8080/events/<event-id>
 curl localhost:8080/tickets/<ticket-id>

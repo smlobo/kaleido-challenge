@@ -12,8 +12,11 @@ contract TicketNFTTest is Test {
 
     address boxOffice = makeAddr("boxOffice");
     address gate = makeAddr("gate");
-    address alice = makeAddr("alice");
-    address bob = makeAddr("bob");
+    // Holders sign check-in passes, so their keys are known.
+    address alice;
+    uint256 aliceKey;
+    address bob;
+    uint256 bobKey;
     address carol = makeAddr("carol");
 
     uint32 constant SUPPLY = 3;
@@ -31,6 +34,8 @@ contract TicketNFTTest is Test {
     event CheckedIn(uint256 indexed tokenId, address indexed holder);
 
     function setUp() public {
+        (alice, aliceKey) = makeAddrAndKey("alice");
+        (bob, bobKey) = makeAddrAndKey("bob");
         // Set to Jan 15, 2027
         vm.warp(1_800_000_000);
         start = uint64(block.timestamp + 7 days);
@@ -44,6 +49,36 @@ contract TicketNFTTest is Test {
     function _mintAsBoxOffice(address to, uint256 tokenId) internal {
         vm.prank(boxOffice);
         ticketnft.mintTicket(to, tokenId, FACE, RECORD);
+    }
+
+    /// A holder's check-in pass, built from the EIP-712 rules rather than the
+    /// contract's own helpers, so it pins down what an off-chain signer must do.
+    function _pass(TicketNFT nft, uint256 holderKey, uint256 tokenId, uint256 deadline)
+        internal
+        view
+        returns (bytes memory)
+    {
+        bytes32 domain = keccak256(
+            abi.encode(
+                keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
+                keccak256("TicketNFT"),
+                keccak256("1"),
+                block.chainid,
+                address(nft)
+            )
+        );
+        bytes32 structHash =
+            keccak256(abi.encode(keccak256("CheckIn(uint256 tokenId,uint256 deadline)"), tokenId, deadline));
+        (uint8 v, bytes32 r, bytes32 s) =
+            vm.sign(holderKey, keccak256(abi.encodePacked("\x19\x01", domain, structHash)));
+        return abi.encodePacked(r, s, v);
+    }
+
+    function _checkInAs(address caller, uint256 holderKey, uint256 tokenId) internal {
+        uint256 deadline = block.timestamp + 5 minutes;
+        bytes memory sig = _pass(ticketnft, holderKey, tokenId, deadline);
+        vm.prank(caller);
+        ticketnft.checkIn(tokenId, deadline, sig);
     }
 
     function _listAs(address seller, uint256 tokenId, uint256 price) internal {
@@ -93,8 +128,7 @@ contract TicketNFTTest is Test {
         assertTrue(ticketnft.hasRole(gateRole, newGate));
 
         _mintAsBoxOffice(alice, 1);
-        vm.prank(newGate);
-        ticketnft.checkIn(1);
+        _checkInAs(newGate, aliceKey, 1);
         assertEq(ticketnft.balanceOf(alice), 0);
     }
 
@@ -159,8 +193,7 @@ contract TicketNFTTest is Test {
         for (uint256 id = 1; id <= SUPPLY; id++) {
             _mintAsBoxOffice(alice, id);
         }
-        vm.prank(gate);
-        ticketnft.checkIn(1);
+        _checkInAs(gate, aliceKey, 1);
         vm.expectRevert(TicketNFT.SoldOut.selector);
         _mintAsBoxOffice(alice, 99);
     }
@@ -329,8 +362,7 @@ contract TicketNFTTest is Test {
         vm.warp(start + 1 hours); // at the door, after the start
         vm.expectEmit(address(ticketnft));
         emit CheckedIn(1, alice);
-        vm.prank(gate);
-        ticketnft.checkIn(1);
+        _checkInAs(gate, aliceKey, 1);
 
         vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, 1));
         ticketnft.ownerOf(1);
@@ -346,17 +378,99 @@ contract TicketNFTTest is Test {
         vm.expectRevert(
             abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, boxOffice, ticketnft.GATE_ROLE())
         );
-        vm.prank(boxOffice);
-        ticketnft.checkIn(1);
+        _checkInAs(boxOffice, aliceKey, 1);
+    }
+
+    function test_CheckIn_HolderAloneCannot() public {
+        _mintAsBoxOffice(alice, 1);
+        vm.expectRevert(
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, alice, ticketnft.GATE_ROLE())
+        );
+        _checkInAs(alice, aliceKey, 1);
     }
 
     function test_CheckIn_TwiceReverts() public {
         _mintAsBoxOffice(alice, 1);
+        uint256 deadline = block.timestamp + 5 minutes;
+        bytes memory sig = _pass(ticketnft, aliceKey, 1, deadline);
         vm.startPrank(gate);
-        ticketnft.checkIn(1);
+        ticketnft.checkIn(1, deadline, sig);
         vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, 1));
-        ticketnft.checkIn(1);
+        ticketnft.checkIn(1, deadline, sig); // the same pass again
         vm.stopPrank();
+    }
+
+    function test_CheckIn_PassFromSomeoneElseReverts() public {
+        _mintAsBoxOffice(alice, 1);
+        vm.expectRevert(abi.encodeWithSelector(TicketNFT.NotSignedByHolder.selector, 1));
+        _checkInAs(gate, bobKey, 1);
+    }
+
+    function test_CheckIn_ExpiredPassReverts() public {
+        _mintAsBoxOffice(alice, 1);
+        uint256 deadline = vm.getBlockTimestamp() + 5 minutes;
+        bytes memory sig = _pass(ticketnft, aliceKey, 1, deadline);
+        vm.warp(deadline); // still valid at the deadline itself
+        vm.prank(gate);
+        ticketnft.checkIn(1, deadline, sig);
+
+        _mintAsBoxOffice(alice, 2);
+        sig = _pass(ticketnft, aliceKey, 2, deadline);
+        vm.warp(deadline + 1);
+        vm.expectRevert(abi.encodeWithSelector(TicketNFT.PassExpired.selector, deadline));
+        vm.prank(gate);
+        ticketnft.checkIn(2, deadline, sig);
+    }
+
+    function test_CheckIn_AlteredPassReverts() public {
+        _mintAsBoxOffice(alice, 1);
+        _mintAsBoxOffice(alice, 2);
+        uint256 deadline = block.timestamp + 5 minutes;
+        bytes memory sig = _pass(ticketnft, aliceKey, 2, deadline);
+        vm.startPrank(gate);
+        vm.expectRevert(abi.encodeWithSelector(TicketNFT.NotSignedByHolder.selector, 1));
+        ticketnft.checkIn(1, deadline, sig); // signed for ticket 2
+        vm.expectRevert(abi.encodeWithSelector(TicketNFT.NotSignedByHolder.selector, 2));
+        ticketnft.checkIn(2, deadline + 1 hours, sig); // deadline stretched
+        vm.stopPrank();
+    }
+
+    function test_CheckIn_PassForAnotherEventReverts() public {
+        TicketNFT other = _deploy(SUPPLY, start);
+        _mintAsBoxOffice(alice, 1);
+        vm.prank(boxOffice);
+        other.mintTicket(alice, 1, FACE, RECORD);
+        uint256 deadline = block.timestamp + 5 minutes;
+        bytes memory sig = _pass(other, aliceKey, 1, deadline); // alice's ticket 1 at the other event
+        vm.expectRevert(abi.encodeWithSelector(TicketNFT.NotSignedByHolder.selector, 1));
+        vm.prank(gate);
+        ticketnft.checkIn(1, deadline, sig);
+    }
+
+    function test_CheckIn_MalformedSignatureReverts() public {
+        _mintAsBoxOffice(alice, 1);
+        uint256 deadline = block.timestamp + 5 minutes;
+        vm.startPrank(gate);
+        vm.expectRevert(abi.encodeWithSelector(TicketNFT.NotSignedByHolder.selector, 1));
+        ticketnft.checkIn(1, deadline, hex"1234");
+        vm.expectRevert(abi.encodeWithSelector(TicketNFT.NotSignedByHolder.selector, 1));
+        ticketnft.checkIn(1, deadline, new bytes(65));
+        vm.stopPrank();
+    }
+
+    function test_CheckIn_ResaleVoidsTheSellersPass() public {
+        _mintAsBoxOffice(alice, 1);
+        uint256 deadline = block.timestamp + 5 minutes;
+        bytes memory alicePass = _pass(ticketnft, aliceKey, 1, deadline);
+        _listAs(alice, 1, FACE);
+        vm.prank(bob);
+        ticketnft.buyResale(1, FACE);
+
+        vm.expectRevert(abi.encodeWithSelector(TicketNFT.NotSignedByHolder.selector, 1));
+        vm.prank(gate);
+        ticketnft.checkIn(1, deadline, alicePass);
+        _checkInAs(gate, bobKey, 1);
+        assertEq(ticketnft.balanceOf(bob), 0);
     }
 
     // ---- Standard transfers are blocked ----

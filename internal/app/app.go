@@ -103,7 +103,7 @@ func Start(ctx context.Context, cfg Config, log *slog.Logger) (_ *App, err error
 
 	a.outbox = outbox.New(a.pool, a.keys, a.chain, outbox.Config{Logger: log, OnFinal: ticketing.OnFinal})
 	a.svc = ticketing.New(ticketing.Config{
-		Pool: a.pool, Keys: a.keys, Outbox: a.outbox, Node: a.chain, Deployer: a.deployer,
+		Pool: a.pool, Keys: a.keys, Outbox: a.outbox, Node: a.chain, Deployer: a.deployer, ChainID: cfg.ChainID,
 		PublicBaseURL: cfg.PublicBaseURL, AdminToken: cfg.AdminToken, Logger: log,
 	})
 

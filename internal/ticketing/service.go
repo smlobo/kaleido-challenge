@@ -45,8 +45,9 @@ type Config struct {
 	Outbox        *outbox.Outbox
 	Node          Estimator
 	Deployer      keystore.Key
-	PublicBaseURL string // no trailing slash
-	AdminToken    string // empty: POST /organizers is refused
+	ChainID       *big.Int // the EIP-712 domain of check-in passes
+	PublicBaseURL string   // no trailing slash
+	AdminToken    string   // empty: POST /organizers is refused
 	Logger        *slog.Logger
 	Now           func() time.Time // tests only
 }
@@ -58,6 +59,7 @@ type Service struct {
 	ob        *outbox.Outbox
 	node      Estimator
 	deployer  keystore.Key
+	chainID   *big.Int
 	baseURL   string
 	adminHash []byte // SHA-256 of ADMIN_TOKEN, or nil
 	log       *slog.Logger
@@ -73,6 +75,7 @@ func New(cfg Config) *Service {
 		ob:       cfg.Outbox,
 		node:     cfg.Node,
 		deployer: cfg.Deployer,
+		chainID:  cfg.ChainID,
 		baseURL:  strings.TrimRight(cfg.PublicBaseURL, "/"),
 		log:      cfg.Logger,
 		now:      cfg.Now,
@@ -215,6 +218,11 @@ func contractRefusal(reason string) *Error {
 		return fail(Rejected, "sold_out", "Sold out", "Every ticket for this event has been issued.")
 	case strings.HasPrefix(reason, "EventStarted"):
 		return fail(Rejected, "event_started", "Event started", "The event has started.")
+	case strings.HasPrefix(reason, "PassExpired"):
+		return errPassExpired
+	case strings.HasPrefix(reason, "NotSignedByHolder"):
+		return fail(Rejected, "pass_not_from_holder", "Pass not from the holder",
+			"The pass was not signed by the ticket's current holder, or it was made for another ticket or event. Ask the holder for a new pass.")
 	}
 	return fail(Rejected, "rejected_by_contract", "Rejected by the contract", "The contract would revert with "+reason+".")
 }

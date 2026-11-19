@@ -57,6 +57,21 @@ func (e *ticketEvent) send(ctx context.Context, t *testing.T, from *chain.Signer
 	}
 }
 
+// pass is the holder's signed check-in pass for ticket id, valid for five minutes.
+func (e *ticketEvent) pass(t *testing.T, holder *chain.Signer, id *big.Int) (*big.Int, []byte) {
+	t.Helper()
+	deadline := big.NewInt(time.Now().Add(5 * time.Minute).Unix())
+	digest, err := ticketnft.CheckInDigest(e.c.ChainID(), e.addr, id, deadline)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sig, err := holder.SignHash(digest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return deadline, sig
+}
+
 func (e *ticketEvent) info(ctx context.Context, t *testing.T, id *big.Int) ticketnft.TicketInfoOutput {
 	t.Helper()
 	out, err := bind.Call(e.nft.Instance(e.c.Eth(), e.addr), &bind.CallOpts{Context: ctx},
@@ -109,7 +124,10 @@ func TestTicketNFTLifecycle(t *testing.T) {
 		t.Fatalf("after resale, owner = %s, want bob", got)
 	}
 
-	e.send(ctx, t, e.gate, e.nft.PackCheckIn(id))
+	// The gate checks bob in with bob's pass, signed in Go: the contract
+	// accepts the Go side's EIP-712 digest and signature.
+	deadline, sig := e.pass(t, e.bob, id)
+	e.send(ctx, t, e.gate, e.nft.PackCheckIn(id, deadline, sig))
 	if _, err := e.owner(ctx, id); err == nil {
 		t.Fatal("ticket still has an owner after check-in")
 	}
@@ -167,6 +185,21 @@ func TestTicketNFTRevertsDecodeInGo(t *testing.T) {
 	if got, ok := decode(e.bob, e.nft.PackMintTicket(e.bob.Address(), big.NewInt(8), faceValue, common.Hash{1})).(*ticketnft.TicketNFTAccessControlUnauthorizedAccount); !ok ||
 		got.Account != e.bob.Address() {
 		t.Errorf("mint by non-minter: got %#v", got)
+	}
+
+	// Check-in needs both parties: a pass signed by someone other than the
+	// holder (alice) is refused, and so is the holder without the gate.
+	deadline, bobsPass := e.pass(t, e.bob, id)
+	if got, ok := decode(e.gate, e.nft.PackCheckIn(id, deadline, bobsPass)).(*ticketnft.TicketNFTNotSignedByHolder); !ok ||
+		got.TokenId.Cmp(id) != 0 {
+		t.Errorf("check-in with someone else's pass: got %#v", got)
+	}
+	deadline, alicesPass := e.pass(t, e.alice, id)
+	if _, ok := decode(e.alice, e.nft.PackCheckIn(id, deadline, alicesPass)).(*ticketnft.TicketNFTAccessControlUnauthorizedAccount); !ok {
+		t.Error("holder checks herself in: want AccessControlUnauthorizedAccount")
+	}
+	if _, err := c.EstimateGas(ctx, e.gate.Address(), &e.addr, nil, e.nft.PackCheckIn(id, deadline, alicesPass)); err != nil {
+		t.Errorf("gate with the holder's pass: %v", err)
 	}
 
 	// The box office, not the deployer, is admin: the deployer can't grant itself minting

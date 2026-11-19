@@ -19,7 +19,8 @@ import (
 )
 
 // The milestone 6 thread through the real service, Postgres and Besu:
-// organizer → user → event deployed → two tickets minted → one checked in,
+// organizer → user → event deployed → two tickets minted → one checked in
+// with the holder's signed pass,
 // checking each step over HTTP and on-chain.
 func TestAPIEventTicketCheckInOnBesu(t *testing.T) {
 	cfg := testConfig(t)
@@ -105,15 +106,23 @@ func TestAPIEventTicketCheckInOnBesu(t *testing.T) {
 		t.Fatalf("metadata: %+v", meta)
 	}
 
-	// Check in ticket 1: burned on-chain, checked_in in the API, once only.
-	c.do("POST", "/tickets/"+t1.ID+"/check-in", alice.Token, "in-1", "", 403, nil)
-	c.do("POST", "/tickets/"+t1.ID+"/check-in", org.Token, "in-1", "", 202, &t1)
+	// Check in ticket 1. Alice (the holder) makes a pass; the organizer's gate
+	// sends it as the check-in body. Burned on-chain, checked_in in the API,
+	// once only.
+	c.do("POST", "/tickets/"+t1.ID+"/pass", org.Token, "", "", 403, nil)
+	var pass1, pass2 json.RawMessage
+	c.do("POST", "/tickets/"+t1.ID+"/pass", alice.Token, "", "", 200, &pass1)
+	c.do("POST", "/tickets/"+t2.ID+"/pass", alice.Token, "", "", 200, &pass2)
+	c.do("POST", "/tickets/"+t1.ID+"/check-in", alice.Token, "in-1", string(pass1), 403, nil)
+	c.do("POST", "/tickets/"+t1.ID+"/check-in", org.Token, "in-0", `{}`, 400, nil)
+	c.do("POST", "/tickets/"+t1.ID+"/check-in", org.Token, "in-0", string(pass2), 400, nil)
+	c.do("POST", "/tickets/"+t1.ID+"/check-in", org.Token, "in-1", string(pass1), 202, &t1)
 	c.waitFor("/tickets/"+t1.ID, "checked_in", &t1)
 	if _, err := a.chain.Eth().CallContract(context.Background(),
 		ethereum.CallMsg{To: &contract, Data: nft.PackOwnerOf(big.NewInt(1))}, nil); err == nil {
 		t.Fatal("ownerOf(1) still answers after check-in; the ticket was not burned")
 	}
-	c.do("POST", "/tickets/"+t1.ID+"/check-in", org.Token, "in-2", "", 409, nil)
+	c.do("POST", "/tickets/"+t1.ID+"/check-in", org.Token, "in-2", string(pass1), 409, nil)
 
 	var op struct {
 		Status string `json:"status"`

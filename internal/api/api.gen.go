@@ -89,6 +89,47 @@ func (e TicketStatus) Valid() bool {
 // Address Example: 0x5aeda56215b167893e80b4fe645ba6d5bab767de
 type Address = string
 
+// CheckInPass A holder's signed permission to check one ticket in (EIP-712, type `CheckIn(uint256 tokenId,uint256 deadline)`, domain name `TicketNFT`, version `1`, this chain and the event's contract). The holder shows it at the door; the gate sends it as the check-in body, and the contract burns the ticket only if its current holder signed it.
+type CheckInPass struct {
+	// ChainId Example: 1337
+	ChainId int64 `json:"chain_id"`
+
+	// ContractAddress Example: 0x5aeda56215b167893e80b4fe645ba6d5bab767de
+	ContractAddress Address `json:"contract_address"`
+
+	// Deadline Valid until this unix time, in seconds (five minutes after it was made).
+	Deadline int64 `json:"deadline"`
+
+	// ExpiresAt The deadline as a timestamp, for people.
+	ExpiresAt time.Time `json:"expires_at"`
+
+	// Signature The holder's 65-byte signature, r ‖ s ‖ v.
+	Signature string             `json:"signature"`
+	TicketId  openapi_types.UUID `json:"ticket_id"`
+
+	// TokenId A non-negative integer up to 2^256 - 1, as a decimal string.
+	//
+	// Example: 100000000
+	TokenId Uint256 `json:"token_id"`
+}
+
+// CheckInRequest The pass, as the holder showed it. Only `deadline` and `signature` are needed; `ticket_id`, if sent, must be the ticket in the path, and the other fields of a pass are accepted and ignored.
+type CheckInRequest struct {
+	ChainId *int64 `json:"chain_id,omitempty"`
+
+	// ContractAddress Example: 0x5aeda56215b167893e80b4fe645ba6d5bab767de
+	ContractAddress *Address            `json:"contract_address,omitempty"`
+	Deadline        int64               `json:"deadline"`
+	ExpiresAt       *time.Time          `json:"expires_at,omitempty"`
+	Signature       string              `json:"signature"`
+	TicketId        *openapi_types.UUID `json:"ticket_id,omitempty"`
+
+	// TokenId A non-negative integer up to 2^256 - 1, as a decimal string.
+	//
+	// Example: 100000000
+	TokenId *Uint256 `json:"token_id,omitempty"`
+}
+
 // CreatedOrganizer defines model for CreatedOrganizer.
 type CreatedOrganizer struct {
 	// BoxOfficeAddress Example: 0x5aeda56215b167893e80b4fe645ba6d5bab767de
@@ -334,6 +375,9 @@ type CreateEventJSONRequestBody = NewEvent
 // CreateOrganizerJSONRequestBody defines body for CreateOrganizer for application/json ContentType.
 type CreateOrganizerJSONRequestBody = NewOrganizer
 
+// CheckInJSONRequestBody defines body for CheckIn for application/json ContentType.
+type CheckInJSONRequestBody = CheckInRequest
+
 // CreateUserJSONRequestBody defines body for CreateUser for application/json ContentType.
 type CreateUserJSONRequestBody = NewUser
 
@@ -363,6 +407,9 @@ type ServerInterface interface {
 	// CheckIn Check a ticket in at the gate
 	// (POST /tickets/{id}/check-in)
 	CheckIn(w http.ResponseWriter, r *http.Request, id TicketID, params CheckInParams)
+	// CreatePass Make a check-in pass for your ticket
+	// (POST /tickets/{id}/pass)
+	CreatePass(w http.ResponseWriter, r *http.Request, id TicketID)
 	// CreateUser Create a user and their custodial wallet
 	// (POST /users)
 	CreateUser(w http.ResponseWriter, r *http.Request)
@@ -657,6 +704,32 @@ func (siw *ServerInterfaceWrapper) CheckIn(w http.ResponseWriter, r *http.Reques
 	handler.ServeHTTP(w, r)
 }
 
+// CreatePass operation middleware
+func (siw *ServerInterfaceWrapper) CreatePass(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id TicketID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreatePass(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // CreateUser operation middleware
 func (siw *ServerInterfaceWrapper) CreateUser(w http.ResponseWriter, r *http.Request) {
 
@@ -797,6 +870,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/events/{id}", wrapper.GetEvent)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/events/{id}/tickets", wrapper.BuyTicket)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/tickets/{id}", wrapper.GetTicket)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/tickets/{id}/pass", wrapper.CreatePass)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/tickets/{id}/check-in", wrapper.CheckIn)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/operations/{id}", wrapper.GetOperation)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/metadata/{event_id}/{token_id}", wrapper.GetMetadata)

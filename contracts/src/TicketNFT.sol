@@ -4,6 +4,8 @@ pragma solidity 0.8.38;
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
+import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
+import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
 /// @title TicketNFT
 /// @notice One contract per event. Each token is one ticket. The box office
@@ -21,9 +23,18 @@ import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 ///
 /// No money moves yet: prices are checked and recorded, and payment is
 /// collected off-chain. On-chain payment (TicketUSD) is a later milestone.
-contract TicketNFT is ERC721, AccessControl {
+///
+/// Check-in needs both parties: the gate sends the transaction, and it carries
+/// a pass the holder signed (EIP-712, see CHECKIN_TYPEHASH). Neither the gate
+/// alone nor the holder alone can burn a ticket.
+contract TicketNFT is ERC721, AccessControl, EIP712 {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     bytes32 public constant GATE_ROLE = keccak256("GATE_ROLE");
+
+    /// @notice The EIP-712 type a holder signs to present a ticket at the gate.
+    /// The signing domain is name "TicketNFT", version "1", this chain and this
+    /// contract, so a pass works only for this event.
+    bytes32 public constant CHECKIN_TYPEHASH = keccak256("CheckIn(uint256 tokenId,uint256 deadline)");
 
     /// @notice Most tickets that can ever be minted; burned tickets still count.
     uint32 public immutable maxSupply;
@@ -61,6 +72,8 @@ contract TicketNFT is ERC721, AccessControl {
     error PriceAboveMaxPrice(uint256 price, uint256 maxPrice);
     error BuyerIsSeller();
     error TransfersDisabled();
+    error PassExpired(uint256 deadline);
+    error NotSignedByHolder(uint256 tokenId);
 
     /// @param boxOffice gets MINTER_ROLE and DEFAULT_ADMIN_ROLE (the organizer's
     ///                  box office key). The deployer gets no role, so once the
@@ -75,7 +88,7 @@ contract TicketNFT is ERC721, AccessControl {
         string memory baseURI_,
         address boxOffice,
         address gate
-    ) ERC721(name_, symbol_) {
+    ) ERC721(name_, symbol_) EIP712("TicketNFT", "1") {
         // Block timestamps can drift by seconds; that is fine for an event start.
         // forge-lint: disable-next-line(block-timestamp)
         if (maxSupply_ == 0 || eventStart_ <= block.timestamp) revert InvalidConfig();
@@ -122,7 +135,9 @@ contract TicketNFT is ERC721, AccessControl {
         uint256 cap = resaleCap(tokenId);
         if (price > cap) revert PriceAboveCap(price, cap);
         _tickets[tokenId].listingPrice = price;
-        // No external call happens here; the linter flags the view helpers.
+        // A false positive: the linter counts the Math.mulDiv library call in
+        // resaleCap as an external call, but internal library code runs inside
+        // this contract, so nothing can re-enter.
         // forge-lint: disable-next-line(reentrancy-events)
         emit TicketListed(tokenId, msg.sender, price);
     }
@@ -149,10 +164,24 @@ contract TicketNFT is ERC721, AccessControl {
     }
 
     /// @notice Check a ticket in at the door: burns it and clears any listing.
-    function checkIn(uint256 tokenId) external onlyRole(GATE_ROLE) {
+    /// The gate sends this; holderSig is the holder's EIP-712 signature of
+    /// CheckIn(tokenId, deadline), which they show at the door (a QR code).
+    /// The burn makes a pass single-use; the deadline limits a copied one.
+    function checkIn(uint256 tokenId, uint256 deadline, bytes calldata holderSig) external onlyRole(GATE_ROLE) {
         address holder = ownerOf(tokenId); // reverts for unknown or already checked-in tickets
+        // A pass is valid for minutes; seconds of timestamp drift do not matter.
+        // forge-lint: disable-next-line(block-timestamp)
+        if (block.timestamp > deadline) revert PassExpired(deadline);
+        bytes32 digest = _hashTypedDataV4(keccak256(abi.encode(CHECKIN_TYPEHASH, tokenId, deadline)));
+        (address signer, ECDSA.RecoverError err,) = ECDSA.tryRecover(digest, holderSig);
+        if (err != ECDSA.RecoverError.NoError || signer != holder) revert NotSignedByHolder(tokenId);
         _tickets[tokenId].listingPrice = 0;
         _burn(tokenId);
+        // A false positive: the linter counts the library calls in _hashTypedDataV4
+        // (and ECDSA) as external calls, but they run inside this contract. The only
+        // real call out is a read-only one to the ecrecover precompile, which cannot
+        // re-enter.
+        // forge-lint: disable-next-line(reentrancy-events)
         emit CheckedIn(tokenId, holder);
     }
 
