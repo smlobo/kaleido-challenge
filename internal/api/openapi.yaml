@@ -1,0 +1,571 @@
+openapi: 3.0.3
+info:
+  title: Event ticketing service
+  version: 0.6.0
+  description: |
+    Event tickets as ERC-721 tokens on a Besu QBFT chain.
+
+    Endpoints that send a transaction answer `202 Accepted` as soon as the
+    signed transaction is saved, with an operation ID. Poll
+    `GET /operations/{id}` for the result. They require an `Idempotency-Key`
+    header: repeating a request with the same key returns the first result
+    and signs nothing new.
+
+    Callers send `Authorization: Bearer <token>`. Organizer and user tokens are
+    returned once, when the organizer or user is created. `POST /organizers`
+    takes the platform's `ADMIN_TOKEN`.
+
+    Amounts (`face_value`) and token IDs are decimal strings, because they are
+    256-bit integers on-chain.
+
+servers:
+  - url: /
+
+tags:
+  - name: Accounts
+  - name: Events
+  - name: Tickets
+  - name: Operations
+
+components:
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: Any string up to 200 characters that identifies this request, for example a UUID. Reuse it when retrying.
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 200
+    EventID:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    TicketID:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    Problem:
+      description: The request was not carried out. `code` says why.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+
+  schemas:
+    Problem:
+      type: object
+      description: An error, in the RFC 9457 problem format.
+      required: [title, status, code]
+      properties:
+        title:
+          type: string
+          example: Sold out
+        status:
+          type: integer
+          example: 422
+        code:
+          type: string
+          description: Stable, machine-readable reason.
+          example: sold_out
+        detail:
+          type: string
+          example: All 500 tickets for this event have been issued.
+
+    Address:
+      type: string
+      pattern: "^0x[0-9a-f]{40}$"
+      example: "0x5aeda56215b167893e80b4fe645ba6d5bab767de"
+    Hash:
+      type: string
+      pattern: "^0x[0-9a-f]{64}$"
+    Uint256:
+      type: string
+      pattern: "^[0-9]{1,78}$"
+      description: A non-negative integer up to 2^256 - 1, as a decimal string.
+      example: "100000000"
+
+    NewOrganizer:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+          example: Rock Fest Ltd
+    Organizer:
+      type: object
+      required: [id, name, box_office_address, gate_address, payout_address]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        box_office_address:
+          $ref: "#/components/schemas/Address"
+        gate_address:
+          $ref: "#/components/schemas/Address"
+        payout_address:
+          $ref: "#/components/schemas/Address"
+    CreatedOrganizer:
+      allOf:
+        - $ref: "#/components/schemas/Organizer"
+        - type: object
+          required: [token]
+          properties:
+            token:
+              type: string
+              description: The organizer's API token. Shown once; only its hash is stored.
+
+    NewUser:
+      type: object
+      required: [subject]
+      properties:
+        subject:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: A login name, unique across users.
+          example: alice
+    User:
+      type: object
+      required: [id, subject, wallet_address]
+      properties:
+        id:
+          type: string
+          format: uuid
+        subject:
+          type: string
+        wallet_address:
+          $ref: "#/components/schemas/Address"
+    CreatedUser:
+      allOf:
+        - $ref: "#/components/schemas/User"
+        - type: object
+          required: [token]
+          properties:
+            token:
+              type: string
+              description: The user's API token. Shown once; only its hash is stored.
+
+    NewEvent:
+      type: object
+      required: [name, symbol, starts_at, max_supply, face_value, max_resale_bps]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: Rock Fest 2027
+        symbol:
+          type: string
+          pattern: "^[A-Z0-9]{1,11}$"
+          example: ROCK27
+        starts_at:
+          type: string
+          format: date-time
+          description: At least one minute from now. Sales and resale stop at this time.
+        max_supply:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 4294967295
+          example: 500
+        face_value:
+          $ref: "#/components/schemas/Uint256"
+        max_resale_bps:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: Resale cap in basis points of face value; 11000 caps resale at 110%.
+          example: 11000
+    Event:
+      type: object
+      required: [id, organizer_id, name, symbol, starts_at, max_supply, face_value, max_resale_bps, status, tickets_issued, tickets_sold, deploy_operation_id]
+      properties:
+        id:
+          type: string
+          format: uuid
+        organizer_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        symbol:
+          type: string
+        starts_at:
+          type: string
+          format: date-time
+        max_supply:
+          type: integer
+          format: int64
+        face_value:
+          $ref: "#/components/schemas/Uint256"
+        max_resale_bps:
+          type: integer
+          format: int64
+        status:
+          type: string
+          enum: [deploying, on_sale, failed]
+          description: "`deploying` until the contract is mined; `failed` if the deploy reverted."
+        contract_address:
+          allOf:
+            - $ref: "#/components/schemas/Address"
+          nullable: true
+        tickets_issued:
+          type: integer
+          format: int64
+          description: Ticket numbers handed out, including mints that failed.
+        tickets_sold:
+          type: integer
+          format: int64
+          description: Tickets minted or being minted.
+        deploy_operation_id:
+          type: string
+          format: uuid
+
+    Ticket:
+      type: object
+      required: [id, event_id, token_id, status, record, record_hash, metadata_url, mint_operation_id]
+      properties:
+        id:
+          type: string
+          format: uuid
+        event_id:
+          type: string
+          format: uuid
+        token_id:
+          $ref: "#/components/schemas/Uint256"
+        status:
+          type: string
+          enum: [pending_mint, active, checked_in, failed]
+        owner_address:
+          allOf:
+            - $ref: "#/components/schemas/Address"
+          nullable: true
+          description: Set once the mint is mined.
+        record:
+          type: object
+          additionalProperties: true
+          description: The canonical off-chain record. Its keccak256 is stored on-chain.
+        record_hash:
+          $ref: "#/components/schemas/Hash"
+        metadata_url:
+          type: string
+          description: The token URI the contract reports for this ticket.
+        mint_operation_id:
+          type: string
+          format: uuid
+        checkin_operation_id:
+          type: string
+          format: uuid
+          nullable: true
+
+    Operation:
+      type: object
+      required: [id, status, from_address, nonce, tx_hash, attempts]
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [signed, submitted, mined, reverted, failed]
+          description: "`signed`: saved, not yet accepted by the node. `submitted`: waiting to be mined. `mined`: succeeded. `reverted`: mined, but the contract rejected it. `failed`: the node would never mine it."
+        from_address:
+          $ref: "#/components/schemas/Address"
+        nonce:
+          type: integer
+          format: int64
+        tx_hash:
+          $ref: "#/components/schemas/Hash"
+        block_number:
+          type: integer
+          format: int64
+          nullable: true
+        contract_address:
+          allOf:
+            - $ref: "#/components/schemas/Address"
+          nullable: true
+        revert_reason:
+          type: string
+          nullable: true
+          description: The contract error, decoded where possible, e.g. `SoldOut()`.
+        last_error:
+          type: string
+          nullable: true
+          description: The latest error from sending, if any.
+        attempts:
+          type: integer
+
+    Metadata:
+      type: object
+      description: ERC-721 metadata, plus the record the on-chain hash commits to.
+      required: [name, description, attributes, record, record_hash]
+      properties:
+        name:
+          type: string
+          example: "Rock Fest 2027 #3"
+        description:
+          type: string
+        attributes:
+          type: array
+          items:
+            type: object
+            required: [trait_type, value]
+            properties:
+              trait_type:
+                type: string
+              value:
+                type: string
+        record:
+          type: object
+          additionalProperties: true
+        record_hash:
+          $ref: "#/components/schemas/Hash"
+
+paths:
+  /organizers:
+    post:
+      tags: [Accounts]
+      operationId: createOrganizer
+      summary: Create an organizer and its box office, gate and payout keys
+      security:
+        - bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewOrganizer"
+      responses:
+        "201":
+          description: Created. The token is in this response only.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreatedOrganizer"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+
+  /users:
+    post:
+      tags: [Accounts]
+      operationId: createUser
+      summary: Create a user and their custodial wallet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewUser"
+      responses:
+        "201":
+          description: Created. The token is in this response only.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreatedUser"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+
+  /events:
+    post:
+      tags: [Events]
+      operationId: createEvent
+      summary: Create an event and deploy its ticket contract
+      description: The caller's organizer keys get the contract's roles. The event is `on_sale` once the deploy is mined.
+      security:
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewEvent"
+      responses:
+        "202":
+          description: Saved; the deploy is on its way.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Event"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+
+  /events/{id}:
+    get:
+      tags: [Events]
+      operationId: getEvent
+      summary: Get an event
+      parameters:
+        - $ref: "#/components/parameters/EventID"
+      responses:
+        "200":
+          description: The event.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Event"
+        "404":
+          $ref: "#/components/responses/Problem"
+
+  /events/{id}/tickets:
+    post:
+      tags: [Tickets]
+      operationId: buyTicket
+      summary: Buy a ticket
+      description: The organizer's box office mints the next ticket number to the caller's wallet.
+      security:
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/EventID"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "202":
+          description: Saved; the mint is on its way.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ticket"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+
+  /tickets/{id}:
+    get:
+      tags: [Tickets]
+      operationId: getTicket
+      summary: Get a ticket
+      parameters:
+        - $ref: "#/components/parameters/TicketID"
+      responses:
+        "200":
+          description: The ticket.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ticket"
+        "404":
+          $ref: "#/components/responses/Problem"
+
+  /tickets/{id}/check-in:
+    post:
+      tags: [Tickets]
+      operationId: checkIn
+      summary: Check a ticket in at the gate
+      description: The organizer's gate key burns the ticket.
+      security:
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/TicketID"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "202":
+          description: Saved; the check-in is on its way.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ticket"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+
+  /operations/{id}:
+    get:
+      tags: [Operations]
+      operationId: getOperation
+      summary: Get the status of a transaction you started
+      security:
+        - bearer: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: The operation.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Operation"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+
+  /metadata/{event_id}/{token_id}:
+    get:
+      tags: [Tickets]
+      operationId: getMetadata
+      summary: ERC-721 metadata for a ticket (the contract's tokenURI)
+      parameters:
+        - name: event_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: token_id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^[0-9]{1,78}$"
+      responses:
+        "200":
+          description: The metadata.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Metadata"
+        "404":
+          $ref: "#/components/responses/Problem"

@@ -27,6 +27,7 @@ type Config struct {
 	KEK           []byte // KEY_ENCRYPTION_KEY, decoded; never logged
 	HTTPAddr      string // host:port to listen on
 	PublicBaseURL string // how clients reach the API; used in ticket URIs
+	AdminToken    string // ADMIN_TOKEN, optional; allows POST /organizers; never logged
 
 	// StartupTimeout is how long to keep retrying Postgres and Besu at
 	// startup, so the service can start alongside them.
@@ -89,6 +90,12 @@ func FromEnv(getenv func(string) string) (Config, error) {
 	cfg.PublicBaseURL = strings.TrimRight(get("PUBLIC_BASE_URL", fmt.Sprintf("http://localhost:%d", port)), "/")
 	if u, err := url.Parse(cfg.PublicBaseURL); err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
 		errs = append(errs, fmt.Errorf("PUBLIC_BASE_URL must be an http(s) URL, got %q", cfg.PublicBaseURL))
+	}
+
+	// Optional. Without it nobody can create organizers.
+	cfg.AdminToken = strings.TrimSpace(getenv("ADMIN_TOKEN"))
+	if cfg.AdminToken != "" && len(cfg.AdminToken) < 4 {
+		errs = append(errs, errors.New("ADMIN_TOKEN must be at least 4 characters"))
 	}
 
 	if err := errors.Join(errs...); err != nil {

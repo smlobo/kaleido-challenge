@@ -12,10 +12,12 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/smlobo/kaleido-challenge/internal/api"
 	"github.com/smlobo/kaleido-challenge/internal/chain"
 	"github.com/smlobo/kaleido-challenge/internal/db"
 	"github.com/smlobo/kaleido-challenge/internal/keystore"
 	"github.com/smlobo/kaleido-challenge/internal/outbox"
+	"github.com/smlobo/kaleido-challenge/internal/ticketing"
 )
 
 // App is a started service: connected, migrated, with a deployer key and a
@@ -28,6 +30,7 @@ type App struct {
 	keys     *keystore.Store
 	outbox   *outbox.Outbox
 	deployer keystore.Key
+	svc      *ticketing.Service
 	ln       net.Listener
 	srv      *http.Server
 }
@@ -98,7 +101,11 @@ func Start(ctx context.Context, cfg Config, log *slog.Logger) (_ *App, err error
 		return nil, fmt.Errorf("deployer key: %w", err)
 	}
 
-	a.outbox = outbox.New(a.pool, a.keys, a.chain, outbox.Config{Logger: log})
+	a.outbox = outbox.New(a.pool, a.keys, a.chain, outbox.Config{Logger: log, OnFinal: ticketing.OnFinal})
+	a.svc = ticketing.New(ticketing.Config{
+		Pool: a.pool, Keys: a.keys, Outbox: a.outbox, Node: a.chain, Deployer: a.deployer,
+		PublicBaseURL: cfg.PublicBaseURL, AdminToken: cfg.AdminToken, Logger: log,
+	})
 
 	a.ln, err = net.Listen("tcp", cfg.HTTPAddr)
 	if err != nil {
@@ -106,7 +113,11 @@ func Start(ctx context.Context, cfg Config, log *slog.Logger) (_ *App, err error
 	}
 	a.srv = &http.Server{Handler: a.routes(), ReadHeaderTimeout: 10 * time.Second}
 
-	log.Info("ready", "chainID", cfg.ChainID, "deployer", a.deployer.Address, "http", a.Addr())
+	if cfg.AdminToken == "" {
+		log.Warn("ADMIN_TOKEN is not set: POST /organizers is disabled, so no new organizers can be created")
+	}
+	log.Info("ready", "chainID", cfg.ChainID, "deployer", a.deployer.Address, "http", a.Addr(),
+		"admin", cfg.AdminToken != "")
 	return a, nil
 }
 
@@ -174,6 +185,7 @@ func (a *App) routes() http.Handler {
 			return err
 		},
 	}))
+	api.Register(mux, a.svc, a.log)
 	return mux
 }
 

@@ -8,6 +8,7 @@
 //	CHAIN_ID           default 1337
 //	HTTP_PORT          default 8080
 //	PUBLIC_BASE_URL    default http://localhost:$HTTP_PORT
+//	ADMIN_TOKEN        optional; allows POST /organizers (at least 16 characters)
 //
 // On first start it applies the migrations and creates the deployer key.
 // It stops cleanly on Ctrl-C or SIGTERM.

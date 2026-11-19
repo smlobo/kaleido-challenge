@@ -1,0 +1,3 @@
+# Generated code: collapsed in GitHub diffs and left out of language stats.
+# Regenerate with go generate ./internal/api (from openapi.yaml).
+internal/api/api.gen.go linguist-generated=true

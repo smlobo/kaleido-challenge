@@ -64,8 +64,8 @@ start (or loads it), and decrypts it so a wrong `KEY_ENCRYPTION_KEY` fails at
 once. Then it runs the outbox loops and serves `GET /healthz` and `GET /readyz`
 on `HTTP_PORT` (8080). Ctrl-C or SIGTERM stops it cleanly. Configuration is
 environment only: `KEY_ENCRYPTION_KEY` (required), `DATABASE_URL`,
-`ETH_RPC_URL`, `CHAIN_ID`, `HTTP_PORT`, `PUBLIC_BASE_URL`; the defaults match
-docker compose.
+`ETH_RPC_URL`, `CHAIN_ID`, `HTTP_PORT`, `PUBLIC_BASE_URL`, and from milestone 6
+`ADMIN_TOKEN` (optional); the defaults match docker compose.
 
 ```bash
 go run ./cmd/ticketing
@@ -73,6 +73,41 @@ go run ./cmd/ticketing
 
 ```bash
 curl -s localhost:8080/readyz
+```
+
+Milestone 6: events, tickets and check-in over HTTP. An admin creates an
+organizer (with `ADMIN_TOKEN`), anyone creates a user, the organizer creates an
+event (its TicketNFT is deployed through the outbox), a user buys tickets (the
+organizer's box office mints them to the user's wallet), and the organizer
+checks a ticket in (the gate key burns it). Writes answer `202` with an
+operation ID and need an `Idempotency-Key` header; `GET /operations/{id}`
+reports the result. The spec is
+[internal/api/openapi.yaml](internal/api/openapi.yaml), with Swagger UI at
+`/docs`. Start the service with an admin token (keep the same
+`KEY_ENCRYPTION_KEY` exported):
+
+```bash
+ADMIN_TOKEN=1234 go run ./cmd/ticketing
+```
+
+Exercise all endpoints:
+
+```bash
+./scripts/create_organizer.py "Rock Fest Ltd" --token 1234
+./scripts/create_user.py alice
+./scripts/create_event.py "Rock Fest 2027" --token <org-token>
+./scripts/buy_ticket.py <event-id> --token <alice-token>
+./scripts/check_in.py <ticket-id> --token <org-token>
+./scripts/get_operation.py OPERATION_ID --token <respective-token>
+curl localhost:8080/events/<event-id>
+curl localhost:8080/tickets/<ticket-id>
+curl localhost:8080/metadata/<event-id>/<token-id>
+```
+
+After editing the spec, regenerate the server code:
+
+```bash
+go generate ./internal/api
 ```
 
 Run the Go tests (chain tests skip if Besu is down, database tests if Postgres is
@@ -98,6 +133,9 @@ More commands for inspecting the chain (`cast`, Besu logs, scripts): [docs/dev-t
 | `internal/keystore` | AES-256-GCM encrypted signing keys and nonce reservation |
 | `internal/outbox` | Transaction outbox: enqueue, send, submitter and receipt loops |
 | `internal/app` | The service: configuration, startup, health checks, shutdown |
+| `internal/api` | HTTP layer: `openapi.yaml`, generated server code, handlers, bearer tokens, Swagger UI |
+| `internal/ticketing` | Business rules: organizers, users, events, tickets, check-in, and the outbox's final-status hook |
+| `docs/schema.sql` | The schema all migrations produce, in one file, for reading; regenerate with `scripts/schema-dump.sh` |
 | `internal/dbtest` | Test helper: a fresh migrated schema per test |
 | `cmd/ticketing` | The service's entry point |
 | `cmd/m1deploy` | Milestone 1 smoke test |

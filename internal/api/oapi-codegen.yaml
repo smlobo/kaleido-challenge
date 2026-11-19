@@ -1,0 +1,8 @@
+# go generate ./internal/api regenerates api.gen.go from openapi.yaml.
+package: api
+output: api.gen.go
+generate:
+  models: true
+  std-http-server: true
+output-options:
+  skip-prune: false

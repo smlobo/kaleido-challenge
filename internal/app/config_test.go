@@ -74,3 +74,18 @@ func TestFromEnvRequiresKEK(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 }
+
+func TestFromEnvAdminToken(t *testing.T) {
+	cfg, err := FromEnv(env(map[string]string{"KEY_ENCRYPTION_KEY": testKEK}))
+	if err != nil || cfg.AdminToken != "" {
+		t.Fatalf("unset: %q %v", cfg.AdminToken, err)
+	}
+	cfg, err = FromEnv(env(map[string]string{"KEY_ENCRYPTION_KEY": testKEK, "ADMIN_TOKEN": "0123456789abcdef"}))
+	if err != nil || cfg.AdminToken != "0123456789abcdef" {
+		t.Fatalf("set: %q %v", cfg.AdminToken, err)
+	}
+	_, err = FromEnv(env(map[string]string{"KEY_ENCRYPTION_KEY": testKEK, "ADMIN_TOKEN": "XXX"}))
+	if err == nil || !strings.Contains(err.Error(), "ADMIN_TOKEN must be at least ") || strings.Contains(err.Error(), "XXX") {
+		t.Fatalf("short: %v", err)
+	}
+}
