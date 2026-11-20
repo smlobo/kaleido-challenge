@@ -164,6 +164,35 @@ trace a `go run` instance, leave Jaeger running from compose:
 OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 ADMIN_TOKEN=1234 go run ./cmd/ticketing
 ```
 
+Demo frontend: a React + TypeScript page ([frontend/](frontend)) with forms for
+the scripts' first steps: create a user, an organizer (with `ADMIN_TOKEN`) and
+an event, each with a table of what came back: the token (with a copy
+button), the Postgres id, and the chain addresses (wallet, box office and gate,
+event contract). An event's row shows `deploying` until its contract is mined.
+A Tickets section buys a ticket for a user, and on each ticket lists it (at
+most the resale cap, filled in), cancels the listing, or buys it as another
+user. Each row shows the owner by name and its latest transaction as it goes
+from `signed` to `mined`, with the block number. **Show pass** on a ticket
+makes the holder's signed check-in pass and shows it as a QR code with its
+five-minute countdown. The Gate section scans it with the camera (or from an
+image, or takes it handed over or pasted), finds the event's organizer from
+the pass's contract address, and checks the ticket in with that organizer's
+token; the ticket's row turns `checked in` once the burn is mined.
+**Show refused actions** (in the header) offers every action on every ticket,
+as any user, plus pass tampering and the wrong gate, and lists the error paths
+to try with the code each returns (for example `422 buyer_is_seller`,
+`409 already_checked_in`, `422 pass_not_from_holder`).
+The Vite dev server proxies `/api` to the service, so the browser sees one
+origin and the API needs no CORS. With the service running on port 8080:
+
+```bash
+cd frontend && npm install && npm run dev
+```
+
+Then open http://localhost:5173. What the page creates is kept in that
+browser's local storage until you press Clear; point it at another service with
+`TICKETING_URL=http://host:port npm run dev`.
+
 After editing the spec, regenerate the server code:
 
 ```bash
@@ -199,6 +228,7 @@ More commands for inspecting the chain (`cast`, Besu logs, scripts): [docs/dev-t
 | `internal/dbtest` | Test helper: a fresh migrated schema per test |
 | `internal/telemetry` | OpenTelemetry setup, SQL spans, JSON-RPC spans with trace headers, trace context for the outbox |
 | `cmd/ticketing` | The service's entry point |
+| `frontend` | Demo page: React + TypeScript on Vite, proxying `/api` to the service |
 | `Dockerfile` | The service image: Go build stage, distroless non-root runtime |
 | `docker/docker-compose.yaml` | Besu, Postgres and the service |
 | `cmd/m1deploy` | Milestone 1 smoke test |

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>Ticketing demo</title>
+  <!-- tile -->
+  <rect width="64" height="64" rx="14" fill="#2346c9"/>
+  <!-- ticket, tilted, with a notch on each side -->
+  <g transform="rotate(-12 32 32)">
+    <path fill="#ffffff" d="M10 20h44a2 2 0 0 1 2 2v6a4 4 0 0 0 0 8v6a2 2 0 0 1-2 2H10a2 2 0 0 1-2-2v-6a4 4 0 0 0 0-8v-6a2 2 0 0 1 2-2z"/>
+    <!-- perforation -->
+    <path stroke="#2346c9" stroke-width="2" stroke-linecap="round" stroke-dasharray="0.1 4.4" d="M42 23v18"/>
+    <!-- a block on the stub: the ticket lives on-chain -->
+    <path fill="#f0997b" d="M26 24.5l7 4v8l-7 4-7-4v-8z"/>
+    <path fill="#993c1d" d="M26 32.5l7-4v8l-7 4z"/>
+    <path fill="#ffd7c7" d="M19 28.5l7-4 7 4-7 4z"/>
+  </g>
+</svg>
