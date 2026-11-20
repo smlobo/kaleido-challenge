@@ -16,6 +16,9 @@ import (
 
 	"github.com/google/uuid"
 	openapi_types "github.com/oapi-codegen/runtime/types"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/smlobo/kaleido-challenge/internal/ticketing"
 )
@@ -42,7 +45,7 @@ func Register(mux *http.ServeMux, svc *ticketing.Service, log *slog.Logger) {
 		BaseRouter:  mux,
 		Middlewares: []MiddlewareFunc{s.authenticate},
 		ErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
-			writeProblem(w, http.StatusBadRequest, "invalid_request", "Invalid request", err.Error())
+			writeProblem(w, r, http.StatusBadRequest, "invalid_request", "Invalid request", err.Error())
 		},
 	})
 	mux.HandleFunc("GET /openapi.yaml", func(w http.ResponseWriter, _ *http.Request) {
@@ -83,7 +86,7 @@ func (s *Server) authenticate(next http.Handler) http.Handler {
 		if h := r.Header.Get("Authorization"); h != "" {
 			scheme, t, ok := strings.Cut(h, " ")
 			if !ok || !strings.EqualFold(scheme, "Bearer") || strings.TrimSpace(t) == "" {
-				writeProblem(w, http.StatusUnauthorized, "unauthorized", "Unauthorized", "Use Authorization: Bearer <token>.")
+				writeProblem(w, r, http.StatusUnauthorized, "unauthorized", "Unauthorized", "Use Authorization: Bearer <token>.")
 				return
 			}
 			token = strings.TrimSpace(t)
@@ -110,7 +113,9 @@ func (s *Server) fail(w http.ResponseWriter, r *http.Request, err error) {
 		if r.Context().Err() == nil {
 			s.log.Error("request failed", "method", r.Method, "path", r.URL.Path, "err", err)
 		}
-		writeProblem(w, http.StatusInternalServerError, "internal", "Internal error", "Something went wrong; it has been logged.")
+		// The client gets a generic message; the trace keeps the real error.
+		trace.SpanFromContext(r.Context()).RecordError(err)
+		writeProblem(w, r, http.StatusInternalServerError, "internal", "Internal error", "Something went wrong; it has been logged.")
 		return
 	}
 	status := map[ticketing.Kind]int{
@@ -121,10 +126,25 @@ func (s *Server) fail(w http.ResponseWriter, r *http.Request, err error) {
 		ticketing.Conflict:     http.StatusConflict,
 		ticketing.Rejected:     http.StatusUnprocessableEntity,
 	}[e.Kind]
-	writeProblem(w, status, e.Code, e.Title, e.Detail)
+	writeProblem(w, r, status, e.Code, e.Title, e.Detail)
 }
 
-func writeProblem(w http.ResponseWriter, status int, code, title, detail string) {
+// writeProblem answers with an RFC 9457 problem, and records it on the
+// request's span: error.type is the problem's code (search Jaeger for
+// error.type=pass_expired), and a "problem" event holds its title and detail.
+// A 4xx leaves the span's status unset, as OpenTelemetry's conventions say for
+// a server: the client's mistake is not the server's error. A 5xx is an error.
+func writeProblem(w http.ResponseWriter, r *http.Request, status int, code, title, detail string) {
+	span := trace.SpanFromContext(r.Context())
+	span.SetAttributes(attribute.String("error.type", code))
+	span.AddEvent("problem", trace.WithAttributes(
+		attribute.String("problem.code", code),
+		attribute.String("problem.title", title),
+		attribute.String("problem.detail", detail),
+	))
+	if status >= 500 {
+		span.SetStatus(codes.Error, title)
+	}
 	p := Problem{Status: status, Code: code, Title: title}
 	if detail != "" {
 		p.Detail = &detail
@@ -145,7 +165,7 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 func decodeOptional(w http.ResponseWriter, r *http.Request, v any) bool {
 	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 64<<10))
 	if err != nil {
-		writeProblem(w, http.StatusBadRequest, "invalid_json", "Invalid JSON", err.Error())
+		writeProblem(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON", err.Error())
 		return false
 	}
 	if len(bytes.TrimSpace(body)) == 0 {
@@ -160,7 +180,7 @@ func decode(w http.ResponseWriter, r *http.Request, v any) bool {
 	d := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64<<10))
 	d.DisallowUnknownFields()
 	if err := d.Decode(v); err != nil {
-		writeProblem(w, http.StatusBadRequest, "invalid_json", "Invalid JSON", err.Error())
+		writeProblem(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON", err.Error())
 		return false
 	}
 	return true
