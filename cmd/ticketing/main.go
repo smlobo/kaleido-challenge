@@ -68,7 +68,7 @@ func serve() int {
 		}
 	}()
 	if telemetry.Enabled() {
-		log.Info("tracing on", "endpoint", os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"))
+		log.Info("tracing on", "endpoint", os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"), "instance", telemetry.InstanceID)
 	}
 
 	a, err := app.Start(ctx, cfg, log)

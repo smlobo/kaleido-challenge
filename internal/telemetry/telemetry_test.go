@@ -160,3 +160,33 @@ func TestPGXTracerOnlyInsideATrace(t *testing.T) {
 		t.Fatalf("attributes: %v", attrs)
 	}
 }
+
+// Spans say which instance made them; the environment can override it.
+func TestResourceNamesTheInstance(t *testing.T) {
+	attrs := func() map[string]string {
+		t.Helper()
+		res, err := newResource(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		m := map[string]string{}
+		for _, kv := range res.Attributes() {
+			m[string(kv.Key)] = kv.Value.Emit()
+		}
+		return m
+	}
+
+	t.Setenv("OTEL_SERVICE_NAME", "")
+	t.Setenv("OTEL_RESOURCE_ATTRIBUTES", "")
+	got := attrs()
+	if got["service.name"] != "ticketing" || got["service.instance.id"] != InstanceID || got["host.name"] == "" || got["process.pid"] == "" {
+		t.Fatalf("resource: %v", got)
+	}
+
+	t.Setenv("OTEL_SERVICE_NAME", "ticketing-eu")
+	t.Setenv("OTEL_RESOURCE_ATTRIBUTES", "service.instance.id=pod-7")
+	got = attrs()
+	if got["service.name"] != "ticketing-eu" || got["service.instance.id"] != "pod-7" {
+		t.Fatalf("environment did not override: %v", got)
+	}
+}

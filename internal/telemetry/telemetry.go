@@ -12,9 +12,9 @@ package telemetry
 
 import (
 	"context"
-	"errors"
 	"os"
 
+	"github.com/google/uuid"
 	"go.opentelemetry.io/contrib/propagators/b3"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -60,18 +60,41 @@ func Setup(ctx context.Context) (shutdown func(context.Context) error, err error
 	if err != nil {
 		return nil, err
 	}
-	name := os.Getenv("OTEL_SERVICE_NAME")
-	if name == "" {
-		name = "ticketing"
-	}
-	res, err := resource.Merge(resource.Default(),
-		resource.NewSchemaless(attribute.String("service.name", name)))
-	if err != nil && !errors.Is(err, resource.ErrSchemaURLConflict) {
+	res, err := newResource(ctx)
+	if err != nil {
 		return nil, err
 	}
 	tp := sdktrace.NewTracerProvider(sdktrace.WithBatcher(exp), sdktrace.WithResource(res))
 	otel.SetTracerProvider(tp)
 	return tp.Shutdown, nil
+}
+
+// InstanceID names this run of the service in traces (service.instance.id):
+// a random UUID per process start, so several instances behind one load
+// balancer, or one instance before and after a restart, can be told apart.
+var InstanceID = uuid.NewString()
+
+// newResource describes the process that makes the spans: the service's name
+// ("ticketing"), InstanceID, the host (in a container, its hostname is the
+// container ID) and the process. OTEL_SERVICE_NAME and OTEL_RESOURCE_ATTRIBUTES
+// override any of these: the environment detector runs last, and later
+// detectors win.
+func newResource(ctx context.Context) (*resource.Resource, error) {
+	res, err := resource.New(ctx,
+		resource.WithTelemetrySDK(),
+		resource.WithAttributes(
+			attribute.String("service.name", "ticketing"),
+			attribute.String("service.instance.id", InstanceID),
+		),
+		resource.WithHost(),
+		resource.WithProcessPID(),
+		resource.WithFromEnv(),
+	)
+	// A detector that only partly worked still gives a usable resource.
+	if err != nil && res == nil {
+		return nil, err
+	}
+	return res, nil
 }
 
 // Inject returns the W3C traceparent of the span in ctx, or "" if ctx has no
