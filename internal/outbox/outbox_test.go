@@ -6,6 +6,7 @@ import (
 	"errors"
 	"math/big"
 	"net"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -14,10 +15,14 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.opentelemetry.io/otel"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 
 	"github.com/smlobo/kaleido-challenge/internal/chain"
 	"github.com/smlobo/kaleido-challenge/internal/dbtest"
 	"github.com/smlobo/kaleido-challenge/internal/keystore"
+	"github.com/smlobo/kaleido-challenge/internal/telemetry"
 )
 
 // fakeNode records every send and answers with scripted errors and receipts.
@@ -495,4 +500,56 @@ func countRows(t *testing.T, pool *pgxpool.Pool) int {
 		t.Fatal(err)
 	}
 	return n
+}
+
+// A traced request's transaction carries its trace: the loops' send, receipt
+// and final-status hook, which run later, join it. An untraced one adds no
+// spans.
+func TestLoopsJoinTheQueuingRequestsTrace(t *testing.T) {
+	rec := tracetest.NewSpanRecorder()
+	prev := otel.GetTracerProvider()
+	otel.SetTracerProvider(sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(rec)))
+	t.Cleanup(func() { otel.SetTracerProvider(prev) })
+
+	f := newFixture(t, Config{OnFinal: func(context.Context, pgx.Tx, Op) error { return nil }})
+	reqCtx, request := telemetry.Tracer().Start(context.Background(), "POST /events/{id}/tickets")
+	var traced Op
+	if err := pgx.BeginFunc(reqCtx, f.pool, func(tx pgx.Tx) error {
+		var err error
+		traced, err = f.ob.Enqueue(reqCtx, tx, Request{KeyID: f.key.ID, To: &target, Gas: 50_000})
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	request.End()
+	untraced := f.enqueue(t, Request{})
+
+	if got := f.get(t, traced.ID); got.traceparent == "" || !strings.Contains(got.traceparent, request.SpanContext().TraceID().String()) {
+		t.Fatalf("saved traceparent %q, want trace %s", got.traceparent, request.SpanContext().TraceID())
+	}
+	if got := f.get(t, untraced.ID); got.traceparent != "" {
+		t.Fatalf("untraced row saved %q", got.traceparent)
+	}
+
+	// The loops run later, from a context with no trace.
+	f.pass(t, f.ob.submitPass)
+	f.node.mine(traced.TxHash, types.ReceiptStatusSuccessful, 7, common.Address{}, "")
+	f.node.mine(untraced.TxHash, types.ReceiptStatusSuccessful, 7, common.Address{}, "")
+	f.pass(t, f.ob.receiptPass)
+
+	names := map[string]bool{}
+	for _, s := range rec.Ended() {
+		if s.SpanContext().TraceID() != request.SpanContext().TraceID() {
+			t.Errorf("span %q is in trace %s, not the request's", s.Name(), s.SpanContext().TraceID())
+		}
+		names[s.Name()] = true
+	}
+	for _, want := range []string{"POST /events/{id}/tickets", "outbox enqueue", "outbox send", "outbox receipt", "outbox final-status hook"} {
+		if !names[want] {
+			t.Errorf("no %q span; got %v", want, names)
+		}
+	}
+	if n := len(rec.Ended()); n != 5 {
+		t.Errorf("%d spans, want 5: the untraced row must add none", n)
+	}
 }

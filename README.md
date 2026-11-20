@@ -3,7 +3,8 @@ Event ticketing service on a local Besu QBFT chain (ERC-721 tickets).
 
 ## Quick start
 
-Start the chain (chain ID 1337, 2 s blocks, free gas) and Postgres (port 5432):
+Start the chain (chain ID 1337, 2 s blocks, free gas) and Postgres (port 5432).
+Jaeger starts with them, since Besu sends it traces (UI on port 16686):
 
 ```bash
 docker compose -f docker/docker-compose.yaml up -d --wait besu postgres
@@ -143,6 +144,26 @@ The scripts above then work unchanged against `localhost:8080`. Service logs:
 docker compose -f docker/docker-compose.yaml logs -f ticketing
 ```
 
+Distributed tracing. The service and Besu send OpenTelemetry spans to Jaeger,
+which compose also runs. Each API request is one trace: its SQL queries, its
+JSON-RPC calls to Besu with Besu's own spans inside them, and, joined later
+from the outbox, the send, each receipt check and the final-status hook. The
+request's trace context is saved with its transaction (`transactions.traceparent`),
+which is how the background loops add to the right trace. Besu reads the `b3`
+header, not `traceparent`, so the service sends both. Health checks and the
+loops' idle polling create no traces. Open the UI, pick service `ticketing`:
+
+```bash
+open http://localhost:16686
+```
+
+Tracing is on when `OTEL_EXPORTER_OTLP_ENDPOINT` is set (compose sets it). To
+trace a `go run` instance, leave Jaeger running from compose:
+
+```bash
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 ADMIN_TOKEN=1234 go run ./cmd/ticketing
+```
+
 After editing the spec, regenerate the server code:
 
 ```bash
@@ -176,6 +197,7 @@ More commands for inspecting the chain (`cast`, Besu logs, scripts): [docs/dev-t
 | `internal/ticketing` | Business rules: organizers, users, events, tickets, check-in, resale, and the outbox's final-status hook |
 | `docs/schema.sql` | The schema all migrations produce, in one file, for reading; regenerate with `scripts/schema-dump.sh` |
 | `internal/dbtest` | Test helper: a fresh migrated schema per test |
+| `internal/telemetry` | OpenTelemetry setup, SQL spans, JSON-RPC spans with trace headers, trace context for the outbox |
 | `cmd/ticketing` | The service's entry point |
 | `Dockerfile` | The service image: Go build stage, distroless non-root runtime |
 | `docker/docker-compose.yaml` | Besu, Postgres and the service |

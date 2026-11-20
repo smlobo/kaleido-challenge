@@ -125,6 +125,7 @@ CREATE TABLE transactions (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     last_error text,
     requested_by text,
+    traceparent text,
     CONSTRAINT transactions_nonce_check CHECK ((nonce >= 0)),
     CONSTRAINT transactions_status_check CHECK ((status = ANY (ARRAY['signed'::text, 'submitted'::text, 'mined'::text, 'reverted'::text, 'failed'::text])))
 );

@@ -11,12 +11,16 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/smlobo/kaleido-challenge/internal/api"
 	"github.com/smlobo/kaleido-challenge/internal/chain"
 	"github.com/smlobo/kaleido-challenge/internal/db"
 	"github.com/smlobo/kaleido-challenge/internal/keystore"
 	"github.com/smlobo/kaleido-challenge/internal/outbox"
+	"github.com/smlobo/kaleido-challenge/internal/telemetry"
 	"github.com/smlobo/kaleido-challenge/internal/ticketing"
 )
 
@@ -60,6 +64,7 @@ func Start(ctx context.Context, cfg Config, log *slog.Logger) (_ *App, err error
 	if err != nil {
 		return nil, fmt.Errorf("DATABASE_URL: %w", err)
 	}
+	poolCfg.ConnConfig.Tracer = telemetry.PGXTracer{} // SQL spans, inside traced requests only
 	deadline := time.Now().Add(cfg.StartupTimeout)
 	a.pool, err = retry(ctx, log, deadline, "Postgres", func(ctx context.Context) (*pgxpool.Pool, error) {
 		return db.OpenConfig(ctx, poolCfg.Copy())
@@ -111,7 +116,7 @@ func Start(ctx context.Context, cfg Config, log *slog.Logger) (_ *App, err error
 	if err != nil {
 		return nil, fmt.Errorf("listen on %s: %w", cfg.HTTPAddr, err)
 	}
-	a.srv = &http.Server{Handler: a.routes(), ReadHeaderTimeout: 10 * time.Second}
+	a.srv = &http.Server{Handler: traced(a.routes()), ReadHeaderTimeout: 10 * time.Second}
 
 	if cfg.AdminToken == "" {
 		log.Warn("ADMIN_TOKEN is not set: POST /organizers is disabled, so no new organizers can be created")
@@ -173,7 +178,7 @@ func (a *App) Addr() string { return a.ln.Addr().String() }
 // Deployer is the platform's deployer key.
 func (a *App) Deployer() keystore.Key { return a.deployer }
 
-func (a *App) routes() http.Handler {
+func (a *App) routes() *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
@@ -187,6 +192,25 @@ func (a *App) routes() http.Handler {
 	}))
 	api.Register(mux, a.svc, a.log)
 	return mux
+}
+
+// traced starts a trace for each API request (or continues the caller's, from
+// a traceparent header). Health checks are left out: the container's check
+// alone would add one trace every 5 s. Each span is named after the route
+// that served it, e.g. "POST /events/{id}/tickets".
+func traced(mux *http.ServeMux) http.Handler {
+	named := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mux.ServeHTTP(w, r)
+		if r.Pattern != "" { // ServeMux sets it on r while routing
+			span := trace.SpanFromContext(r.Context())
+			span.SetName(r.Pattern)
+			span.SetAttributes(attribute.String("http.route", r.Pattern))
+		}
+	})
+	return otelhttp.NewHandler(named, "http request",
+		otelhttp.WithFilter(func(r *http.Request) bool {
+			return r.URL.Path != "/healthz" && r.URL.Path != "/readyz"
+		}))
 }
 
 // readiness answers 200 when every check passes within 2 s, else 503 with

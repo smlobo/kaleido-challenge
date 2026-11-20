@@ -1,20 +1,47 @@
 # Local stack: single-node Besu QBFT chain + Postgres + the ticketing service
 #
-# docker compose up -d --build --wait # start all; API on http://localhost:8080
+# docker compose up -d --build --wait # start all; API on http://localhost:8080,
+#                                     # traces on http://localhost:16686 (Jaeger)
 # docker compose up -d --wait besu postgres # chain and database only, for go run
 #                             # JSON-RPC on http://localhost:8545, ws://localhost:8546
 # docker compose down # stop and wipe chain state
 #
 # Chain ID 1337, 2s blocks, forks through Prague, zero gas price.
+# Tracing: the service and Besu send OpenTelemetry spans to Jaeger. A request's
+# trace runs from the API call through its JSON-RPC calls (into Besu's own
+# spans) and SQL, to the outbox's send, receipt and final-status hook.
 # Prefunded (1,000,000 ETH each): the 10 standard Hardhat/Anvil dev accounts,
 # mnemonic "test test test test test test test test test test test junk".
 
 services:
+  # Trace store and UI. Takes OTLP over gRPC (4317, from Besu) and HTTP (4318,
+  # from the service). Traces are kept in memory and go with the container.
+  jaeger:
+    image: jaegertracing/jaeger:2.23.0
+    ports:
+      - 16686:16686 # UI
+      - 4317:4317 # OTLP gRPC
+      - 4318:4318 # OTLP HTTP, for a service started with go run
+
   besu:
     image: hyperledger/besu:26.11.0
     ports:
       - 8545:8545 # HTTP JSON-RPC
       - 8546:8546 # WebSocket JSON-RPC
+    # Besu's built-in OpenTelemetry tracing: a span per JSON-RPC request and
+    # one per method inside it. It joins the caller's trace from a b3 header.
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
+      OTEL_SERVICE_NAME: besu
+      # Record only calls that arrive inside a trace; the health check and
+      # other untraced calls would otherwise each start a trace of their own.
+      OTEL_TRACES_SAMPLER: parentbased_always_off
+      # Traces only: with --metrics-protocol=opentelemetry Besu would also push
+      # metrics over OTLP, which Jaeger does not accept (UNIMPLEMENTED).
+      OTEL_METRICS_EXPORTER: none
+    depends_on:
+      jaeger:
+        condition: service_started
     configs:
       - source: genesis
         target: /config/genesis.json
@@ -39,6 +66,8 @@ services:
       - --tx-pool-max-size=1000000
       - --revert-reason-enabled
       - --discovery-enabled=false
+      - --metrics-enabled
+      - --metrics-protocol=opentelemetry
     healthcheck:
       test: ["CMD-SHELL", "timeout 5s bash -c ':> /dev/tcp/localhost/8545'"]
       interval: 5s
@@ -77,6 +106,8 @@ services:
       DATABASE_URL: postgres://ticketing:ticketing@postgres:5432/ticketing?sslmode=disable
       ETH_RPC_URL: http://besu:8545
       PUBLIC_BASE_URL: http://localhost:8080
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+      OTEL_SERVICE_NAME: ticketing
     depends_on:
       besu:
         condition: service_healthy

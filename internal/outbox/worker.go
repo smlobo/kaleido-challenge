@@ -12,6 +12,10 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/jackc/pgx/v5"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
+
+	"github.com/smlobo/kaleido-challenge/internal/telemetry"
 )
 
 // rpcTimeout bounds each node call, so a hung node cannot hold row locks.
@@ -60,19 +64,22 @@ func (o *Outbox) loop(ctx context.Context, name string, pass func(context.Contex
 // submitPass sends 'signed' rows and resends 'submitted' rows whose receipt is
 // overdue, oldest nonce first per key.
 func (o *Outbox) submitPass(ctx context.Context) (int, error) {
-	return o.claim(ctx, `WHERE status IN ('signed', 'submitted') AND next_attempt_at <= now()
+	return o.claim(ctx, "outbox send", `WHERE status IN ('signed', 'submitted') AND next_attempt_at <= now()
 		ORDER BY from_address, nonce`, o.attempt)
 }
 
 // receiptPass looks up the receipt of each 'submitted' row, least recently
 // checked first.
 func (o *Outbox) receiptPass(ctx context.Context) (int, error) {
-	return o.claim(ctx, `WHERE status = 'submitted' ORDER BY updated_at`, o.checkReceipt)
+	return o.claim(ctx, "outbox receipt", `WHERE status = 'submitted' ORDER BY updated_at`, o.checkReceipt)
 }
 
 // claim locks up to BatchSize rows that no other worker holds and handles
 // each one in the same database transaction.
-func (o *Outbox) claim(ctx context.Context, where string, handle func(context.Context, pgx.Tx, Op) error) (int, error) {
+//
+// Each row's work goes into the trace of the request that queued it, as a
+// span named spanName, so a trace runs from the API call to the receipt.
+func (o *Outbox) claim(ctx context.Context, spanName, where string, handle func(context.Context, pgx.Tx, Op) error) (int, error) {
 	var n int
 	err := pgx.BeginFunc(ctx, o.db, func(tx pgx.Tx) error {
 		rows, err := tx.Query(ctx, selectOp+" "+where+" LIMIT $1 FOR UPDATE SKIP LOCKED", o.cfg.BatchSize)
@@ -85,7 +92,10 @@ func (o *Outbox) claim(ctx context.Context, where string, handle func(context.Co
 		}
 		n = len(ops)
 		for _, op := range ops {
-			if err := o.handleOne(ctx, tx, op, handle); err != nil {
+			opCtx, span := telemetry.Child(telemetry.Extract(ctx, op.traceparent), spanName, opAttrs(op)...)
+			err := o.handleOne(opCtx, tx, op, handle)
+			telemetry.EndSpan(span, err)
+			if err != nil {
 				return fmt.Errorf("op %s: %w", op.ID, err)
 			}
 		}
@@ -103,6 +113,7 @@ func (o *Outbox) handleOne(ctx context.Context, tx pgx.Tx, op Op, handle func(co
 	if err == nil {
 		return nil
 	}
+	trace.SpanFromContext(ctx).RecordError(err)
 	if ctx.Err() == nil {
 		o.log.Error("row rolled back; will retry", "op", op.ID, "nonce", op.Nonce, "err", err)
 	}
@@ -168,6 +179,7 @@ func (o *Outbox) checkReceipt(ctx context.Context, tx pgx.Tx, op Op) error {
 		o.log.Warn("receipt lookup failed", "op", op.ID, "err", err)
 		return nil // try again next pass
 	}
+	trace.SpanFromContext(ctx).SetAttributes(attribute.Bool("outbox.receipt_found", rcpt != nil))
 	if rcpt != nil {
 		return o.finalize(ctx, tx, op, rcpt, reason)
 	}
@@ -202,6 +214,8 @@ func (o *Outbox) finalize(ctx context.Context, tx pgx.Tx, op Op, rcpt *types.Rec
 		return err
 	}
 	o.log.Info("transaction "+string(status), "op", op.ID, "nonce", op.Nonce, "block", rcpt.BlockNumber)
+	trace.SpanFromContext(ctx).SetAttributes(attribute.String("outbox.final_status", string(status)),
+		attribute.Int64("eth.block_number", rcpt.BlockNumber.Int64()))
 	return o.final(ctx, tx, op.ID)
 }
 
@@ -237,7 +251,7 @@ func (o *Outbox) fillGap(ctx context.Context, tx pgx.Tx, op Op) error {
 	if err != nil {
 		return err
 	}
-	filler, err := insert(ctx, tx, signer, op.Nonce, &op.From, nil, fillerGas, "")
+	filler, err := insert(ctx, tx, signer, op.Nonce, &op.From, nil, fillerGas, "", op.traceparent)
 	if err != nil {
 		return err
 	}
@@ -255,7 +269,10 @@ func (o *Outbox) final(ctx context.Context, tx pgx.Tx, id string) error {
 	if err != nil {
 		return err
 	}
-	return o.cfg.OnFinal(ctx, tx, op)
+	ctx, span := telemetry.Child(ctx, "outbox final-status hook", opAttrs(op)...)
+	err = o.cfg.OnFinal(ctx, tx, op)
+	telemetry.EndSpan(span, err)
+	return err
 }
 
 type sendResult int

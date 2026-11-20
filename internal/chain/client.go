@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"net/http"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
@@ -14,6 +15,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
+
+	"github.com/smlobo/kaleido-challenge/internal/telemetry"
 )
 
 // Client is a thin JSON-RPC client for the Besu node.
@@ -25,7 +28,10 @@ type Client struct {
 
 // Dial connects to the node and checks that it serves the expected chain.
 func Dial(ctx context.Context, url string, wantChainID *big.Int) (*Client, error) {
-	rc, err := rpc.DialContext(ctx, url)
+	// Over HTTP, each call goes through telemetry.Transport: inside a trace
+	// it becomes a span named after the JSON-RPC method, and carries the
+	// trace headers on to the node.
+	rc, err := rpc.DialOptions(ctx, url, rpc.WithHTTPClient(&http.Client{Transport: telemetry.Transport{}}))
 	if err != nil {
 		return nil, fmt.Errorf("dial %s: %w", url, err)
 	}

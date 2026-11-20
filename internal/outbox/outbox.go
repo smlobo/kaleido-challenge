@@ -27,9 +27,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/jackc/pgx/v5"
+	"go.opentelemetry.io/otel/attribute"
 
 	"github.com/smlobo/kaleido-challenge/internal/chain"
 	"github.com/smlobo/kaleido-challenge/internal/keystore"
+	"github.com/smlobo/kaleido-challenge/internal/telemetry"
 )
 
 // Status is a transactions row's status column.
@@ -84,7 +86,8 @@ type Op struct {
 	// idempotency key instead of creating one.
 	Existing bool
 
-	raw []byte
+	raw         []byte
+	traceparent string // the queuing request's trace context; "" if untraced
 }
 
 // FinalHook runs in the same database transaction that gives a row its final
@@ -151,6 +154,17 @@ func (o *Outbox) Enqueue(ctx context.Context, tx pgx.Tx, req Request) (Op, error
 	if req.Gas == 0 {
 		return Op{}, errors.New("outbox: Request.Gas is required")
 	}
+	// The loops' later spans hang off the request's span, not this one.
+	traceparent := telemetry.Inject(ctx)
+	ctx, span := telemetry.Child(ctx, "outbox enqueue")
+	op, err := o.enqueue(ctx, tx, req, traceparent)
+	span.SetAttributes(opAttrs(op)...)
+	span.SetAttributes(attribute.Bool("outbox.existing", op.Existing))
+	telemetry.EndSpan(span, err)
+	return op, err
+}
+
+func (o *Outbox) enqueue(ctx context.Context, tx pgx.Tx, req Request, traceparent string) (Op, error) {
 	if req.IdempotencyKey != "" {
 		op, err := scanOp(tx.QueryRow(ctx, selectOp+` WHERE idempotency_key = $1`, req.IdempotencyKey))
 		if err == nil {
@@ -169,7 +183,7 @@ func (o *Outbox) Enqueue(ctx context.Context, tx pgx.Tx, req Request) (Op, error
 	if err != nil {
 		return Op{}, err
 	}
-	return insert(ctx, tx, signer, nonce, req.To, req.Data, req.Gas, req.IdempotencyKey)
+	return insert(ctx, tx, signer, nonce, req.To, req.Data, req.Gas, req.IdempotencyKey, traceparent)
 }
 
 // Send is the fast path: send a 'signed' row right after its commit. It does
@@ -185,8 +199,25 @@ func (o *Outbox) Send(ctx context.Context, id string) error {
 		if err != nil {
 			return err
 		}
-		return o.attempt(ctx, tx, op)
+		ctx, span := telemetry.Child(ctx, "outbox send", opAttrs(op)...)
+		err = o.attempt(ctx, tx, op)
+		telemetry.EndSpan(span, err)
+		return err
 	})
+}
+
+// opAttrs describes an operation on a span.
+func opAttrs(op Op) []attribute.KeyValue {
+	if op.ID == "" {
+		return nil
+	}
+	return []attribute.KeyValue{
+		attribute.String("outbox.op_id", op.ID),
+		attribute.String("outbox.status", string(op.Status)),
+		attribute.String("eth.from", op.From.Hex()),
+		attribute.Int64("eth.nonce", int64(op.Nonce)),
+		attribute.String("eth.tx_hash", op.TxHash.Hex()),
+	}
 }
 
 // Get loads one operation.
@@ -215,7 +246,8 @@ func (o *Outbox) Wait(ctx context.Context, id string) (Op, error) {
 var ErrNotFound = errors.New("outbox: operation not found")
 
 const selectOp = `SELECT id, from_address, nonce, to_address, calldata, raw_tx, tx_hash, status,
-	block_number, contract_address, coalesce(revert_reason, ''), coalesce(last_error, ''), attempts
+	block_number, contract_address, coalesce(revert_reason, ''), coalesce(last_error, ''), attempts,
+	coalesce(traceparent, '')
 	FROM transactions`
 
 func scanOp(row pgx.Row) (Op, error) {
@@ -225,7 +257,7 @@ func scanOp(row pgx.Row) (Op, error) {
 	var nonce int64
 	var block *int64
 	err := row.Scan(&op.ID, &from, &nonce, &to, &op.Calldata, &op.raw, &hash, &status,
-		&block, &contract, &op.RevertReason, &op.LastError, &op.Attempts)
+		&block, &contract, &op.RevertReason, &op.LastError, &op.Attempts, &op.traceparent)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Op{}, ErrNotFound
 	}
@@ -252,7 +284,7 @@ func scanOp(row pgx.Row) (Op, error) {
 }
 
 func insert(ctx context.Context, tx pgx.Tx, signer *chain.Signer, nonce uint64, to *common.Address,
-	data []byte, gas uint64, idemKey string) (Op, error) {
+	data []byte, gas uint64, idemKey, traceparent string) (Op, error) {
 	signed, err := signer.Sign(chain.TxRequest{Nonce: nonce, To: to, Data: data, Gas: gas})
 	if err != nil {
 		return Op{}, err
@@ -268,16 +300,20 @@ func insert(ctx context.Context, tx pgx.Tx, signer *chain.Signer, nonce uint64, 
 	if data == nil {
 		data = []byte{}
 	}
+	var tp *string
+	if traceparent != "" {
+		tp = &traceparent
+	}
 	var id string
 	if err := tx.QueryRow(ctx,
-		`INSERT INTO transactions (idempotency_key, from_address, nonce, to_address, calldata, raw_tx, tx_hash)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
-		key, hexAddr(signer.Address()), int64(nonce), hexAddrPtr(to), data, raw, hexHash(signed.Hash()),
+		`INSERT INTO transactions (idempotency_key, from_address, nonce, to_address, calldata, raw_tx, tx_hash, traceparent)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
+		key, hexAddr(signer.Address()), int64(nonce), hexAddrPtr(to), data, raw, hexHash(signed.Hash()), tp,
 	).Scan(&id); err != nil {
 		return Op{}, fmt.Errorf("insert transaction: %w", err)
 	}
 	return Op{ID: id, From: signer.Address(), Nonce: nonce, To: to, Calldata: data,
-		TxHash: signed.Hash(), Status: Signed, raw: raw}, nil
+		TxHash: signed.Hash(), Status: Signed, raw: raw, traceparent: traceparent}, nil
 }
 
 // The schema's eth_address and eth_hash domains require lowercase hex.
