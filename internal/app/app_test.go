@@ -28,7 +28,7 @@ func testConfig(t *testing.T) Config {
 	defer cancel()
 	c, err := chain.Dial(ctx, DefaultRPCURL, nil)
 	if err != nil {
-		t.Skipf("Besu not reachable (%v); run: docker compose -f docker/docker-compose.yaml up -d --wait", err)
+		t.Skipf("Besu not reachable (%v); run: docker compose -f docker/docker-compose.yaml up -d --wait besu postgres", err)
 	}
 	c.Close()
 	return Config{

@@ -24,7 +24,7 @@ func dialBesu(t *testing.T) *chain.Client {
 	defer cancel()
 	c, err := chain.Dial(ctx, "http://localhost:8545", chain.ChainID1337)
 	if err != nil {
-		t.Skipf("Besu not reachable (%v); run: docker compose -f docker/docker-compose.yaml up -d --wait", err)
+		t.Skipf("Besu not reachable (%v); run: docker compose -f docker/docker-compose.yaml up -d --wait besu postgres", err)
 	}
 	if _, err := c.PendingNonce(ctx, common.Address{}); err != nil {
 		c.Close()

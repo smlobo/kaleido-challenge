@@ -1,0 +1,8 @@
+# The image is built from go.mod, go.sum, cmd/ and internal/ only; keep the
+# rest out of the build context.
+*
+!go.mod
+!go.sum
+!cmd/
+!internal/
+**/*_test.go

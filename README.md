@@ -6,7 +6,7 @@ Event ticketing service on a local Besu QBFT chain (ERC-721 tickets).
 Start the chain (chain ID 1337, 2 s blocks, free gas) and Postgres (port 5432):
 
 ```bash
-docker compose -f docker/docker-compose.yaml up -d --wait
+docker compose -f docker/docker-compose.yaml up -d --wait besu postgres
 ```
 
 Milestone 1: Deploy a plain ERC-721 with a transaction the Go code signs itself and 
@@ -124,6 +124,25 @@ makes a new one.
 ./scripts/cancel_listing.py <ticket-id> --token <bob-token>
 ```
 
+Milestone 9: the service as a container. The [Dockerfile](Dockerfile) builds a
+static binary in a Go stage and copies it into `distroless/static`, running as
+non-root (about 25 MB). The binary needs no files: migrations, the OpenAPI spec
+and the contract bytecode are compiled in, and configuration comes only from the
+environment. Its health check runs `/ticketing healthcheck`, which asks the
+service's own `/readyz`, since the image has no shell or curl. One compose file
+runs Besu, Postgres and the service; it takes `KEY_ENCRYPTION_KEY` and
+`ADMIN_TOKEN` from your shell:
+
+```bash
+docker compose -f docker/docker-compose.yaml up -d --build --wait
+```
+
+The scripts above then work unchanged against `localhost:8080`. Service logs:
+
+```bash
+docker compose -f docker/docker-compose.yaml logs -f ticketing
+```
+
 After editing the spec, regenerate the server code:
 
 ```bash
@@ -158,6 +177,8 @@ More commands for inspecting the chain (`cast`, Besu logs, scripts): [docs/dev-t
 | `docs/schema.sql` | The schema all migrations produce, in one file, for reading; regenerate with `scripts/schema-dump.sh` |
 | `internal/dbtest` | Test helper: a fresh migrated schema per test |
 | `cmd/ticketing` | The service's entry point |
+| `Dockerfile` | The service image: Go build stage, distroless non-root runtime |
+| `docker/docker-compose.yaml` | Besu, Postgres and the service |
 | `cmd/m1deploy` | Milestone 1 smoke test |
 | `cmd/m2demo` | Milestone 2 smoke test |
 | `cmd/m4demo` | Milestone 4 smoke test |

@@ -37,7 +37,7 @@ func SchemaURL(t *testing.T) string {
 
 	admin, err := db.Open(ctx, URL())
 	if err != nil {
-		t.Skipf("Postgres not reachable (%v); run: docker compose -f docker/docker-compose.yaml up -d --wait", err)
+		t.Skipf("Postgres not reachable (%v); run: docker compose -f docker/docker-compose.yaml up -d --wait besu postgres", err)
 	}
 	b := make([]byte, 6)
 	_, _ = rand.Read(b)

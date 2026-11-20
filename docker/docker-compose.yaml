@@ -1,6 +1,8 @@
-# Local dev stack: single-node Besu QBFT chain + Postgres
+# Local stack: single-node Besu QBFT chain + Postgres + the ticketing service
 #
-# docker compose up -d --wait # start; JSON-RPC on http://localhost:8545, ws://localhost:8546
+# docker compose up -d --build --wait # start all; API on http://localhost:8080
+# docker compose up -d --wait besu postgres # chain and database only, for go run
+#                             # JSON-RPC on http://localhost:8545, ws://localhost:8546
 # docker compose down # stop and wipe chain state
 #
 # Chain ID 1337, 2s blocks, forks through Prague, zero gas price.
@@ -58,6 +60,29 @@ services:
       interval: 2s
       timeout: 5s
       retries: 20
+
+  # The ticketing service, built from the Dockerfile at the repository root.
+  # It needs KEY_ENCRYPTION_KEY from your shell (openssl rand -base64 32), and
+  # takes ADMIN_TOKEN from it too if set. Only the chain and the database:
+  #   docker compose up -d --wait besu postgres
+  ticketing:
+    build:
+      context: ..
+    image: kaleido-ticketing
+    ports:
+      - 8080:8080
+    environment:
+      KEY_ENCRYPTION_KEY: ${KEY_ENCRYPTION_KEY:-}
+      ADMIN_TOKEN: ${ADMIN_TOKEN:-}
+      DATABASE_URL: postgres://ticketing:ticketing@postgres:5432/ticketing?sslmode=disable
+      ETH_RPC_URL: http://besu:8545
+      PUBLIC_BASE_URL: http://localhost:8080
+    depends_on:
+      besu:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    restart: on-failure:3
 
 configs:
   # Validator node key; its address (0x950bffd0f9ed35b37879c186ae770d2c94f08147)

@@ -4,7 +4,7 @@ Commands for inspecting the local Besu chain and working with the contracts.
 All examples assume the dev stack from `docker/docker-compose.yaml` (Besu and Postgres) is running:
 
 ```bash
-docker compose -f docker/docker-compose.yaml up -d --wait
+docker compose -f docker/docker-compose.yaml up -d --wait besu postgres
 ```
 
 ## cast (Foundry)
@@ -261,7 +261,7 @@ docker compose -f docker/docker-compose.yaml down
 ```
 
 ```bash
-docker compose -f docker/docker-compose.yaml up -d --wait
+docker compose -f docker/docker-compose.yaml up -d --wait besu postgres
 ```
 
 Tests don't touch the `public` schema. Each one creates its own `test_<random>`
