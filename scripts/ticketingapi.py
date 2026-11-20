@@ -3,6 +3,8 @@ this folder. Standard library only."""
 
 import json
 import os
+import sys
+import time
 import urllib.error
 import urllib.request
 
@@ -65,3 +67,40 @@ def post_json(base_url: str, path: str, body: dict, token: str | None = None,
 
 def get_json(base_url: str, path: str, token: str | None = None) -> dict:
     return request("GET", base_url, path, token=token)
+
+
+FINAL_STATUSES = {"mined", "reverted", "failed"}
+
+
+def wait_for_operation(base_url: str, op_id: str, token: str, seconds: float) -> dict:
+    """Poll GET /operations/{id} until the transaction is final (mined,
+    reverted or failed) or seconds pass, and return the last answer."""
+    deadline = time.monotonic() + seconds
+    op = get_json(base_url, "/operations/" + op_id, token=token)
+    while op["status"] not in FINAL_STATUSES and time.monotonic() < deadline:
+        time.sleep(1)
+        op = get_json(base_url, "/operations/" + op_id, token=token)
+    return op
+
+
+def print_outcome(op: dict | None, seconds: float) -> int:
+    """Print how an operation ended and return the script's exit status:
+    0 mined (or not waited for), 1 otherwise."""
+    if op is None:
+        return 0
+    line = f"tx          {op['status']}"
+    if op.get("block_number"):
+        line += f" in block {op['block_number']}"
+    print(line)
+    if op.get("revert_reason"):
+        print(f"reverted    {op['revert_reason']}")
+    if op.get("last_error"):
+        print(f"last error  {op['last_error']}")
+    sys.stdout.flush()  # keep the lines above ahead of any message on stderr
+    if op["status"] == "mined":
+        return 0
+    if op["status"] in ("reverted", "failed"):
+        print("The transaction did not go through; the ticket is as it was.", file=sys.stderr)
+    else:
+        print(f"Still {op['status']} after {seconds:g} s; is Besu producing blocks?", file=sys.stderr)
+    return 1

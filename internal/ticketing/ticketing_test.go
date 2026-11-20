@@ -305,8 +305,7 @@ func TestBuyTicketRules(t *testing.T) {
 	// Mined: active and owned by the buyer's wallet.
 	f.finish(t, t1.MintOperationID, outbox.Mined, nil)
 	t1, _ = f.svc.GetTicket(ctx, t1.ID)
-	var wallet string
-	_ = f.pool.QueryRow(ctx, `SELECT k.address FROM users u JOIN signing_keys k ON k.id = u.wallet_key_id WHERE u.id = $1`, alice.ID).Scan(&wallet)
+	wallet := f.wallet(t, alice)
 	if t1.Status != "active" || t1.OwnerAddress == nil || *t1.OwnerAddress != wallet {
 		t.Fatalf("after mint: %+v, wallet %s", t1, wallet)
 	}
@@ -575,5 +574,157 @@ func TestDecodeRevert(t *testing.T) {
 		if got := DecodeRevert(c.data); got != c.want {
 			t.Errorf("DecodeRevert(%x) = %s, want %s", c.data, got, c.want)
 		}
+	}
+}
+
+func (f *fixture) wallet(t *testing.T, p Principal) string {
+	t.Helper()
+	var addr string
+	if err := f.pool.QueryRow(context.Background(),
+		`SELECT k.address FROM users u JOIN signing_keys k ON k.id = u.wallet_key_id WHERE u.id = $1`, p.ID).Scan(&addr); err != nil {
+		t.Fatal(err)
+	}
+	return addr
+}
+
+func TestResaleRules(t *testing.T) {
+	f := setup(t)
+	ctx := context.Background()
+	org := f.organizer(t)
+	e := f.onSale(t, org, 5)
+	alice, bob, carol := f.user(t, "alice"), f.user(t, "bob"), f.user(t, "carol")
+	tk, err := f.svc.BuyTicket(ctx, alice, e.ID, "k")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = f.svc.ListTicket(ctx, alice, tk.ID, "100000000", "l0")
+	wantRefusal(t, err, Conflict, "not_minted_yet")
+	f.finish(t, tk.MintOperationID, outbox.Mined, nil)
+
+	// Who may list, and at what price. The cap is face value 100000000 at 110%.
+	_, err = f.svc.ListTicket(ctx, bob, tk.ID, "100000000", "l1")
+	wantRefusal(t, err, Forbidden, "not_your_ticket")
+	_, err = f.svc.ListTicket(ctx, org, tk.ID, "100000000", "l1")
+	wantRefusal(t, err, Forbidden, "forbidden")
+	_, err = f.svc.ListTicket(ctx, alice, tk.ID, "0", "l1")
+	wantRefusal(t, err, Invalid, "invalid_price")
+	_, err = f.svc.ListTicket(ctx, alice, tk.ID, "110000001", "l1")
+	wantRefusal(t, err, Rejected, "price_above_cap")
+	_, err = f.svc.CancelListing(ctx, alice, tk.ID, "c1")
+	wantRefusal(t, err, Conflict, "not_listed")
+	_, err = f.svc.BuyResale(ctx, bob, tk.ID, "", "b1")
+	wantRefusal(t, err, Conflict, "not_listed")
+
+	// Listing at exactly the cap. It shows once mined, not before.
+	var sent []byte
+	f.node.estimates = func(_ *common.Address, data []byte) error { sent = data; return nil }
+	l, err := f.svc.ListTicket(ctx, alice, tk.ID, "110000000", "l1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := f.svc.nft.PackListForResale(big.NewInt(1), big.NewInt(110_000_000)); string(sent) != string(want) {
+		t.Fatalf("listing sent %x, want listForResale(1, 110000000)", sent)
+	}
+	if l.Ticket.ListingPrice != nil {
+		t.Fatalf("listed before the listing is mined: %+v", l.Ticket)
+	}
+	if again, err := f.svc.ListTicket(ctx, alice, tk.ID, "110000000", "l1"); err != nil || again.OperationID != l.OperationID {
+		t.Fatalf("repeat with the same key: %+v %v", again, err)
+	}
+	if ls, _ := f.svc.Listings(ctx, e.ID); len(ls) != 0 {
+		t.Fatalf("listings before mined: %+v", ls)
+	}
+	// One chain action per ticket at a time: no second listing, purchase or check-in.
+	_, err = f.svc.ListTicket(ctx, alice, tk.ID, "105000000", "l2")
+	wantRefusal(t, err, Conflict, "action_in_progress")
+	pass, err := f.svc.CreatePass(ctx, alice, tk.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = f.svc.CheckIn(ctx, org, tk.ID, PassInput{Deadline: pass.Deadline.Unix(), Signature: pass.Signature}, "in1")
+	wantRefusal(t, err, Conflict, "action_in_progress")
+	if _, err := f.svc.GetOperation(ctx, alice, l.OperationID); err != nil {
+		t.Fatalf("lister cannot read their operation: %v", err)
+	}
+
+	f.finish(t, l.OperationID, outbox.Mined, nil)
+	ls, err := f.svc.Listings(ctx, e.ID)
+	if err != nil || len(ls) != 1 || ls[0].TicketID != tk.ID || ls[0].Price != "110000000" || ls[0].Seller != f.wallet(t, alice) {
+		t.Fatalf("listings after mined: %+v %v", ls, err)
+	}
+
+	// Buying: not your own, and not above what you agreed to pay.
+	_, err = f.svc.BuyResale(ctx, alice, tk.ID, "", "b1")
+	wantRefusal(t, err, Rejected, "buyer_is_seller")
+	_, err = f.svc.BuyResale(ctx, bob, tk.ID, "109999999", "b1")
+	wantRefusal(t, err, Rejected, "price_changed")
+	b, err := f.svc.BuyResale(ctx, bob, tk.ID, "", "b1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := f.svc.nft.PackBuyResale(big.NewInt(1), big.NewInt(110_000_000)); string(sent) != string(want) {
+		t.Fatalf("purchase sent %x, want buyResale(1, 110000000): no max_price means the listed price", sent)
+	}
+	f.finish(t, b.OperationID, outbox.Mined, nil)
+	tk, _ = f.svc.GetTicket(ctx, tk.ID)
+	if tk.OwnerAddress == nil || *tk.OwnerAddress != f.wallet(t, bob) || tk.ListingPrice != nil {
+		t.Fatalf("after the resale: %+v", tk)
+	}
+	if ls, _ := f.svc.Listings(ctx, e.ID); len(ls) != 0 {
+		t.Fatalf("listings after the sale: %+v", ls)
+	}
+	_, err = f.svc.CreatePass(ctx, alice, tk.ID)
+	wantRefusal(t, err, Forbidden, "not_your_ticket")
+
+	// A reverted purchase changes nothing; a mined cancellation clears the listing.
+	l, err = f.svc.ListTicket(ctx, bob, tk.ID, "90000000", "l3")
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.finish(t, l.OperationID, outbox.Mined, nil)
+	b, err = f.svc.BuyResale(ctx, carol, tk.ID, "90000000", "b2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.finish(t, b.OperationID, outbox.Reverted, nil)
+	if tk, _ = f.svc.GetTicket(ctx, tk.ID); *tk.OwnerAddress != f.wallet(t, bob) || tk.ListingPrice == nil || *tk.ListingPrice != "90000000" {
+		t.Fatalf("after a reverted purchase: %+v", tk)
+	}
+	c, err := f.svc.CancelListing(ctx, bob, tk.ID, "c2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.finish(t, c.OperationID, outbox.Mined, nil)
+	if tk, _ = f.svc.GetTicket(ctx, tk.ID); tk.ListingPrice != nil {
+		t.Fatalf("after cancelling: %+v", tk)
+	}
+
+	// Nothing is listed or resold once the event starts.
+	f.svc.now = func() time.Time { return time.Now().Add(48 * time.Hour) }
+	_, err = f.svc.ListTicket(ctx, bob, tk.ID, "90000000", "l4")
+	wantRefusal(t, err, Rejected, "event_started")
+}
+
+// The contract's resale refusals reach the caller as 4xx problems, unsigned.
+func TestResaleRefusedByContract(t *testing.T) {
+	f := setup(t)
+	ctx := context.Background()
+	e := f.onSale(t, f.organizer(t), 5)
+	alice := f.user(t, "alice")
+	tk, err := f.svc.BuyTicket(ctx, alice, e.ID, "k")
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.finish(t, tk.MintOperationID, outbox.Mined, nil)
+	notHolder := ticketABI().Errors["NotTicketHolder"]
+	data, _ := notHolder.Inputs.Pack(big.NewInt(1))
+	f.node.estimates = func(*common.Address, []byte) error {
+		return revertErr{data: "0x" + common.Bytes2Hex(append(notHolder.ID[:4:4], data...))}
+	}
+	_, err = f.svc.ListTicket(ctx, alice, tk.ID, "100000000", "l1")
+	wantRefusal(t, err, Forbidden, "not_your_ticket")
+	var n int
+	if err := f.pool.QueryRow(ctx, `SELECT count(*) FROM resale_actions`).Scan(&n); err != nil || n != 0 {
+		t.Fatalf("a refused listing was saved: %d %v", n, err)
 	}
 }

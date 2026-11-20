@@ -18,6 +18,7 @@ type Ticket struct {
 	ID, EventID, TokenID string
 	Status               string // pending_mint, active, checked_in, failed
 	OwnerAddress         *string
+	ListingPrice         *string         // set while listed for resale
 	Record               json.RawMessage // canonical form
 	RecordHash           string
 	MetadataURL          string
@@ -160,15 +161,19 @@ func (s *Service) CheckIn(ctx context.Context, p Principal, ticketID string, pas
 		var (
 			organizerID, status, tokenID, gateID, gate, contract string
 			checkinStatus                                        *string
+			reselling                                            bool
 		)
 		err := tx.QueryRow(ctx,
-			`SELECT e.organizer_id, t.status, t.token_id::text, o.gate_key_id, k.address, e.contract_address, c.status
+			`SELECT e.organizer_id, t.status, t.token_id::text, o.gate_key_id, k.address, e.contract_address, c.status,
+			        EXISTS (SELECT 1 FROM resale_actions a JOIN transactions x ON x.id = a.tx_id
+			                WHERE a.ticket_id = t.id AND x.status IN ('signed', 'submitted'))
 			 FROM tickets t
 			 JOIN events e ON e.id = t.event_id
 			 JOIN organizers o ON o.id = e.organizer_id
 			 JOIN signing_keys k ON k.id = o.gate_key_id
 			 LEFT JOIN transactions c ON c.id = t.checkin_tx_id
-			 WHERE t.id = $1 FOR UPDATE OF t`, ticketID).Scan(&organizerID, &status, &tokenID, &gateID, &gate, &contract, &checkinStatus)
+			 WHERE t.id = $1 FOR UPDATE OF t`, ticketID).Scan(&organizerID, &status, &tokenID, &gateID, &gate, &contract,
+			&checkinStatus, &reselling)
 		if isNoRows(err) {
 			return errNotFound("ticket")
 		}
@@ -186,6 +191,8 @@ func (s *Service) CheckIn(ctx context.Context, p Principal, ticketID string, pas
 			return errAlreadyCheckedIn
 		case checkinStatus != nil && *checkinStatus != string(outbox.Reverted) && *checkinStatus != string(outbox.Failed):
 			return fail(Conflict, "already_checked_in", "Already checked in", "A check-in of this ticket is already on its way.")
+		case reselling:
+			return errActionInFlight
 		}
 
 		to := common.HexToAddress(contract)
@@ -236,13 +243,13 @@ func (s *Service) ticketByOp(ctx context.Context, column, opID string, err error
 	return s.GetTicket(ctx, id)
 }
 
-const selectTicket = `SELECT id, event_id, token_id::text, status, owner_address, record::text, record_hash,
-	mint_tx_id, checkin_tx_id FROM tickets`
+const selectTicket = `SELECT id, event_id, token_id::text, status, owner_address, listing_price::text,
+	record::text, record_hash, mint_tx_id, checkin_tx_id FROM tickets`
 
 func (s *Service) scanTicket(row pgx.Row) (Ticket, error) {
 	var t Ticket
 	var record string
-	if err := row.Scan(&t.ID, &t.EventID, &t.TokenID, &t.Status, &t.OwnerAddress, &record, &t.RecordHash,
+	if err := row.Scan(&t.ID, &t.EventID, &t.TokenID, &t.Status, &t.OwnerAddress, &t.ListingPrice, &record, &t.RecordHash,
 		&t.MintOperationID, &t.CheckInOperationID); err != nil {
 		if isNoRows(err) {
 			return Ticket{}, errNotFound("ticket")

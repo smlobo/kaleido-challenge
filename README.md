@@ -104,6 +104,24 @@ Exercise all endpoints:
 curl localhost:8080/events/<event-id>
 curl localhost:8080/tickets/<ticket-id>
 curl localhost:8080/metadata/<event-id>/<token-id>
+curl localhost:8080/events/<event-id>/listings
+```
+
+Milestone 7: resale. A holder lists a ticket at no more than the event's resale
+cap (face value x `max_resale_bps` / 10000), can cancel the listing, and another
+user buys it. Each step is a transaction from that user's own wallet, and the
+contract checks it: only the holder lists, the price stays under the cap, and the
+buyer pays no more than `max_price`. No money moves yet; the contract records the
+price. A ticket has one transaction in flight at a time (`409 action_in_progress`
+otherwise). Once sold, the seller's check-in passes no longer work; the buyer
+makes a new one.
+
+```bash
+./scripts/create_user.py bob
+./scripts/list_ticket.py <ticket-id> --price 110000000 --token <alice-token>
+./scripts/buy_resale.py <ticket-id> --token <bob-token>
+./scripts/list_ticket.py <ticket-id> --price 90000000 --token <bob-token>
+./scripts/cancel_listing.py <ticket-id> --token <bob-token>
 ```
 
 After editing the spec, regenerate the server code:
@@ -136,7 +154,7 @@ More commands for inspecting the chain (`cast`, Besu logs, scripts): [docs/dev-t
 | `internal/outbox` | Transaction outbox: enqueue, send, submitter and receipt loops |
 | `internal/app` | The service: configuration, startup, health checks, shutdown |
 | `internal/api` | HTTP layer: `openapi.yaml`, generated server code, handlers, bearer tokens, Swagger UI |
-| `internal/ticketing` | Business rules: organizers, users, events, tickets, check-in, and the outbox's final-status hook |
+| `internal/ticketing` | Business rules: organizers, users, events, tickets, check-in, resale, and the outbox's final-status hook |
 | `docs/schema.sql` | The schema all migrations produce, in one file, for reading; regenerate with `scripts/schema-dump.sh` |
 | `internal/dbtest` | Test helper: a fresh migrated schema per test |
 | `cmd/ticketing` | The service's entry point |

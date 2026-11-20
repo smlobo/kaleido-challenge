@@ -68,6 +68,17 @@ CREATE TABLE organizers (
     created_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
+CREATE TABLE resale_actions (
+    tx_id uuid NOT NULL,
+    ticket_id uuid NOT NULL,
+    kind text NOT NULL,
+    user_id uuid NOT NULL,
+    price uint256,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT resale_actions_check CHECK (((kind = 'cancel'::text) = (price IS NULL))),
+    CONSTRAINT resale_actions_kind_check CHECK ((kind = ANY (ARRAY['list'::text, 'cancel'::text, 'buy'::text])))
+);
+
 CREATE TABLE signing_keys (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     address eth_address NOT NULL,
@@ -152,6 +163,9 @@ ALTER TABLE ONLY organizers
 ALTER TABLE ONLY organizers
     ADD CONSTRAINT organizers_pkey PRIMARY KEY (id);
 
+ALTER TABLE ONLY resale_actions
+    ADD CONSTRAINT resale_actions_pkey PRIMARY KEY (tx_id);
+
 ALTER TABLE ONLY signing_keys
     ADD CONSTRAINT signing_keys_address_key UNIQUE (address);
 
@@ -186,9 +200,13 @@ CREATE INDEX chain_events_token ON chain_events USING btree (contract, token_id)
 
 CREATE INDEX events_deploy_tx ON events USING btree (deploy_tx_id);
 
+CREATE INDEX resale_actions_ticket ON resale_actions USING btree (ticket_id);
+
 CREATE UNIQUE INDEX signing_keys_one_deployer ON signing_keys USING btree (purpose) WHERE (purpose = 'deployer'::text);
 
 CREATE INDEX tickets_checkin_tx ON tickets USING btree (checkin_tx_id);
+
+CREATE INDEX tickets_listed ON tickets USING btree (event_id) WHERE (listing_price IS NOT NULL);
 
 CREATE INDEX tickets_mint_tx ON tickets USING btree (mint_tx_id);
 
@@ -216,6 +234,15 @@ ALTER TABLE ONLY organizers
 
 ALTER TABLE ONLY organizers
     ADD CONSTRAINT organizers_payout_key_id_fkey FOREIGN KEY (payout_key_id) REFERENCES signing_keys(id);
+
+ALTER TABLE ONLY resale_actions
+    ADD CONSTRAINT resale_actions_ticket_id_fkey FOREIGN KEY (ticket_id) REFERENCES tickets(id);
+
+ALTER TABLE ONLY resale_actions
+    ADD CONSTRAINT resale_actions_tx_id_fkey FOREIGN KEY (tx_id) REFERENCES transactions(id);
+
+ALTER TABLE ONLY resale_actions
+    ADD CONSTRAINT resale_actions_user_id_fkey FOREIGN KEY (user_id) REFERENCES users(id);
 
 ALTER TABLE ONLY tickets
     ADD CONSTRAINT tickets_buyer_user_id_fkey FOREIGN KEY (buyer_user_id) REFERENCES users(id);

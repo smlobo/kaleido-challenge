@@ -271,27 +271,31 @@ schema, migrates it and drops it afterwards. Point them at another database with
 ## scripts/find_activity.py
 
 Lists everything that happened to the contracts on the chain, in chain order: each
-contract deploy, and each ERC-721 mint, resale, check-in or other transfer. Every
-line shows who signed the transaction (`by`).
+contract deploy, each ERC-721 mint, resale, check-in or other transfer, and each
+resale listing or cancellation. Lines show who signed the transaction (`by`), except
+where it can only be one party.
 
 ```bash
 python3 scripts/find_activity.py                     # everything
 python3 scripts/find_activity.py --contract 0x...    # one contract: its deploy and all its tickets
 python3 scripts/find_activity.py --contract 0x... --token 1   # one ticket's history
 python3 scripts/find_activity.py --to 0x...          # tokens that arrived at an address
-python3 scripts/find_activity.py --from 0x...        # tokens that left an address
+python3 scripts/find_activity.py --from 0x...        # tokens that left an address, and its listings
 python3 scripts/find_activity.py --from-block 1600
 python3 scripts/find_activity.py --full              # whole hashes and addresses, for pasting into cast
 ```
 
-Output (the Go lifecycle test: deploy, mint to Alice, Alice sells to Bob, the gate
-checks Bob in):
+Output (the end-to-end API test: deploy, two mints to Alice, Alice's ticket 1
+checked in, Alice lists ticket 2, Bob buys it, the gate checks Bob in):
 
 ```
-[469] tx 0x2590ff9ca18d639d13... contract <0x0ec4e338aea153...> TicketNFT 'Go Test Fest' (GTF) by <0xff51f9abc837b3...>  deploy
-[470] tx 0x78fd47a910884dc882... contract <0x0ec4e338aea153...> TicketNFT 'Go Test Fest' (GTF) tID 1 from <0x00000000000000...> to <0x8ffe58062205fb...> by <0xfec7fd18c4ffa7...>  mint
-[472] tx 0x2c12f29e2d5c619462... contract <0x0ec4e338aea153...> TicketNFT 'Go Test Fest' (GTF) tID 1 from <0x8ffe58062205fb...> to <0xdb7f4568ac2abd...> by <0xdb7f4568ac2abd...>  resale price 110000000
-[473] tx 0x27d316441d9122a1db... contract <0x0ec4e338aea153...> TicketNFT 'Go Test Fest' (GTF) tID 1 from <0xdb7f4568ac2abd...> to <0x00000000000000...> by <0xac54b1936448a9...>  check-in
+[448] tx 0x38d27e22f324ae8c35... contract <0x44cd204d93d8a0...> TicketNFT 'Rock Fest 2027' (ROCK27) by <0x166ffa2b06e9a8...>  deploy
+[449] tx 0x170a02bdc936c76130... contract <0x44cd204d93d8a0...> TicketNFT 'Rock Fest 2027' (ROCK27) tID 1 from <0x00000000000000...> to <0xc5ff122114981e...> by <0xc7810d43ba347c...>  mint
+[449] tx 0x81219f22311ff7f5a8... contract <0x44cd204d93d8a0...> TicketNFT 'Rock Fest 2027' (ROCK27) tID 2 from <0x00000000000000...> to <0xc5ff122114981e...> by <0xc7810d43ba347c...>  mint
+[450] tx 0x21bb95bf121d8a2626... contract <0x44cd204d93d8a0...> TicketNFT 'Rock Fest 2027' (ROCK27) tID 1 from <0xc5ff122114981e...> to <0x00000000000000...> by <0x2cdc7ffda30294...>  check-in
+[451] tx 0x1daff30910a7d84944... contract <0x44cd204d93d8a0...> TicketNFT 'Rock Fest 2027' (ROCK27) tID 2 seller <0xc5ff122114981e...>  list price 110000000
+[452] tx 0x5a059a928ab01c4538... contract <0x44cd204d93d8a0...> TicketNFT 'Rock Fest 2027' (ROCK27) tID 2 from <0xc5ff122114981e...> to <0xfa4018bae48a65...>  resale price 110000000
+[453] tx 0xdf1d7f6edd86e0ee95... contract <0x44cd204d93d8a0...> TicketNFT 'Rock Fest 2027' (ROCK27) tID 2 from <0xfa4018bae48a65...> to <0x00000000000000...> by <0x2cdc7ffda30294...>  check-in
 ```
 
 How to read a line:
@@ -302,16 +306,22 @@ How to read a line:
 - For token lines, `from` and `to` are the token's previous and new owner. `from` is
   the zero address for a mint, and `to` is the zero address for a burn.
 - `by` is the transaction's signer: the deployer for a deploy, the box office for a
-  mint, the buyer for a resale (so `by` equals `to`), and the gate for a check-in.
+  mint, and the gate for a check-in. A resale has no `by`: it is always signed by
+  the buyer, so it would repeat `to`.
+- Listing lines have `seller` (the ticket's holder) instead of `from` and `to`,
+  since a listing moves no token. They have no `by` either: the holder's own wallet
+  lists and cancels, so the signer is always the seller.
 - The last column is `deploy` (or `deploy reverted`), `mint`, `resale price <n>`
-  (from `TicketResold`), `check-in` (from `CheckedIn`), `burn` or `transfer`.
+  (from `TicketResold`), `check-in` (from `CheckedIn`), `list price <n>` (from
+  `TicketListed`), `cancel listing` (from `ListingCancelled`), `burn` or `transfer`.
   TicketNFT blocks plain transfers, so its token lines are only mints, resales and
   check-ins. The price is in the token's smallest unit: 110000000 is 110.00 with 6
   decimals.
 
 Notes:
 - `--from`, `--to` and `--token` select token activity, so deploys are left out when
-  you use them. `--contract` keeps both.
+  you use them. `--contract` keeps both. `--from` also selects that address's
+  listings and cancellations; `--to` leaves listings out.
 - Deploys are found by reading every block, since a creation has no `to` to filter
   on. Token activity uses `eth_getLogs`, in 5000-block chunks because Besu caps one
   call at that (`--rpc-max-logs-range`).

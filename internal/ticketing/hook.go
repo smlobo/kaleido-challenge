@@ -17,7 +17,13 @@ import (
 //
 //	deploy   mined → event on_sale with its contract address; else failed
 //	mint     mined → ticket active, owned by the buyer's wallet; else failed
-//	check-in mined → ticket checked_in; else the ticket stays active
+//	check-in mined → ticket checked_in, listing cleared; else stays active
+//	list     mined → ticket's listing_price set
+//	cancel   mined → listing_price cleared
+//	buy      mined → ticket owned by the buyer's wallet, listing cleared
+//
+// A reverted or failed listing, cancellation or purchase changes nothing:
+// the ticket is as the chain left it.
 //
 // Each update only moves a row out of the state it expects, so running it
 // twice changes nothing, and operations that are neither (fillers) match no
@@ -46,7 +52,20 @@ func OnFinal(ctx context.Context, tx pgx.Tx, op outbox.Op) error {
 	}
 	if mined {
 		if _, err := tx.Exec(ctx,
-			`UPDATE tickets SET status = 'checked_in' WHERE checkin_tx_id = $1 AND status = 'active'`, op.ID); err != nil {
+			`UPDATE tickets SET status = 'checked_in', listing_price = NULL
+			 WHERE checkin_tx_id = $1 AND status = 'active'`, op.ID); err != nil {
+			return err
+		}
+		// The contract clears a listing when the ticket is sold, so a sale
+		// does both: new owner, no listing.
+		if _, err := tx.Exec(ctx,
+			`UPDATE tickets t SET
+			     listing_price = CASE a.kind WHEN 'list' THEN a.price END,
+			     owner_address = CASE a.kind WHEN 'buy' THEN (
+			         SELECT k.address FROM users u JOIN signing_keys k ON k.id = u.wallet_key_id
+			         WHERE u.id = a.user_id) ELSE t.owner_address END
+			 FROM resale_actions a
+			 WHERE a.tx_id = $1 AND t.id = a.ticket_id AND t.status = 'active'`, op.ID); err != nil {
 			return err
 		}
 	}

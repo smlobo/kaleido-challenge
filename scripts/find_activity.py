@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""List contract deploys and ERC-721 token activity (mints, resales, burns) on the
-dev chain, in chain order, with who signed each transaction.
+"""List contract deploys and ERC-721 token activity (mints, listings, resales, burns)
+on the dev chain, in chain order, with who signed each transaction.
 
 Deploys: every contract-creation transaction (no "to"). Its type (DemoNFT,
 TicketNFT, ...) is the contract in contracts/build whose creation bytecode the
@@ -8,8 +8,14 @@ input starts with; "?" if none matches, e.g. a deploy from before a rebuild.
 
 Token activity: ERC-721 Transfer events (4 topics; ERC-20's Transfer has 3).
 "from" and "to" are the token's previous and new owner, "by" is the transaction's
-signer. For TicketNFT, a TicketResold event in the same transaction adds the
-resale price, and a CheckedIn event marks a burn as a check-in.
+signer (left out for a resale, where it is always the buyer, "to"). For TicketNFT, a TicketResold event in the same transaction marks a
+transfer as a resale with its price, and a CheckedIn event marks a burn as a
+check-in.
+
+Listings: TicketNFT's TicketListed and ListingCancelled events. Listing a ticket
+or cancelling a listing moves no token, so there is no Transfer to show; these
+lines show the ticket and its holder ("seller"), who is also the signer. --from selects a
+seller's listings too; --to leaves listings out, as nothing moves to anyone.
 
 Usage: scripts/find_activity.py [--contract ADDR ...] [--from ADDR] [--to ADDR] [--token ID]
                                 [--from-block N] [--full] [--rpc URL]
@@ -30,6 +36,8 @@ BUILD_DIR = Path(__file__).resolve().parent.parent / "contracts" / "build"
 TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"  # Transfer(address,address,uint256)
 RESOLD_TOPIC = "0xd59a36d8310ffb140214be490baf3fe8961f859a17199ec1bf9015c8b7340011"    # TicketResold(uint256,address,address,uint256)
 CHECKED_IN_TOPIC = "0x70790c0ab38e2aca9b5520985fe66db2a3700c3680b61c3853b5554f67a2c31c"  # CheckedIn(uint256,address)
+LISTED_TOPIC = "0x22968ec3be3687b180f3544163a034b88d57b48159d9a7e9a1b610fdb2d05f80"      # TicketListed(uint256,address,uint256)
+CANCELLED_TOPIC = "0x411aee90354c51b1b04cd563fcab2617142a9d50da19232d888547c8a1b7fd8a"   # ListingCancelled(uint256)
 ZERO_TOPIC = "0x" + "0" * 64
 
 # Besu caps the block range of one eth_getLogs call (--rpc-max-logs-range, default 5000).
@@ -91,8 +99,9 @@ def main() -> int:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--contract", action="append", default=[],
                    help="only this contract (repeat for several)")
-    p.add_argument("--from", dest="sender", metavar="ADDR", help="only tokens moved away from this address")
-    p.add_argument("--to", help="only tokens moved to this address")
+    p.add_argument("--from", dest="sender", metavar="ADDR",
+                   help="only tokens moved away from this address, and its listings")
+    p.add_argument("--to", help="only tokens moved to this address (leaves listings out)")
     p.add_argument("--token", type=int, help="only this token ID")
     p.add_argument("--from-block", type=int, default=0)
     p.add_argument("--rpc", default=DEFAULT_RPC)
@@ -109,7 +118,7 @@ def main() -> int:
 
     rpc = RPC(args.rpc)
     latest = rpc.block_number()
-    print(f"scanning blocks {args.from_block}..{latest} for deploys and token activity", file=sys.stderr)
+    print(f"scanning blocks {args.from_block}..{latest} for deploys, token activity and listings", file=sys.stderr)
 
     # Deploys are needed even when filtered out: they give each contract its type.
     deploys = find_deploys(rpc, args.from_block, latest)
@@ -132,7 +141,16 @@ def main() -> int:
             labels[key] = (f"resale price {int(log['data'], 16)}" if log["topics"][0] == RESOLD_TOPIC
                            else "check-in")
 
-    txs = rpc.batch([("eth_getTransactionByHash", [log["transactionHash"]]) for log in transfers])
+    # Listings and cancellations. Both index the token ID; only a listing names
+    # the seller, so a cancellation's holder is checked against its signer.
+    listings = []
+    if not args.to:
+        token_topic = "0x" + uint_word(args.token) if args.token is not None else None
+        listings = get_logs(rpc, args.from_block, latest, [[LISTED_TOPIC, CANCELLED_TOPIC], token_topic], contracts)
+
+    txs = rpc.batch([("eth_getTransactionByHash", [log["transactionHash"]]) for log in transfers + listings])
+    listing_txs = txs[len(transfers):]
+    txs = txs[:len(transfers)]
 
     rows = []  # (block, order, line)
     names: dict[str, str] = {}
@@ -164,10 +182,29 @@ def main() -> int:
                      else "burn" if log["topics"][2] == ZERO_TOPIC else "transfer")
         ctype = types.get(contract, "?")
         block = int(log["blockNumber"], 16)
+        # A resale is always signed by the buyer, so "by" would repeat "to".
+        by = "" if label.startswith("resale") else f" by <{a(tx['from'].lower())}>"
         rows.append((block, (int(log["transactionIndex"], 16), int(log["logIndex"], 16)),
                      f"[{block}] tx {h(log['transactionHash'])} contract <{a(contract)}> {ctype} {describe(contract)} "
                      f"tID {token_id} from <{a(word_to_address(log['topics'][1]))}> "
-                     f"to <{a(word_to_address(log['topics'][2]))}> by <{a(tx['from'].lower())}>  {label}"))
+                     f"to <{a(word_to_address(log['topics'][2]))}>{by}  {label}"))
+
+    for log, tx in zip(listings, listing_txs):
+        contract = log["address"].lower()
+        token_id = int(log["topics"][1], 16)
+        signer = tx["from"].lower()
+        if log["topics"][0] == LISTED_TOPIC:
+            holder, label = word_to_address(log["topics"][2]), f"list price {int(log['data'], 16)}"
+        else:
+            holder, label = signer, "cancel listing"
+        if args.sender and holder.lower() != args.sender.lower():
+            continue
+        ctype = types.get(contract, "?")
+        block = int(log["blockNumber"], 16)
+        # The holder's own wallet lists and cancels, so the seller is the signer.
+        rows.append((block, (int(log["transactionIndex"], 16), int(log["logIndex"], 16)),
+                     f"[{block}] tx {h(log['transactionHash'])} contract <{a(contract)}> {ctype} {describe(contract)} "
+                     f"tID {token_id} seller <{a(holder)}>  {label}"))
 
     for _, _, line in sorted(rows):
         print(line)

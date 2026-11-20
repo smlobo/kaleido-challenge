@@ -25,6 +25,7 @@ tags:
   - name: Accounts
   - name: Events
   - name: Tickets
+  - name: Resale
   - name: Operations
 
 components:
@@ -321,7 +322,12 @@ components:
           allOf:
             - $ref: "#/components/schemas/Address"
           nullable: true
-          description: Set once the mint is mined.
+          description: Set once the mint is mined; changes when the ticket is resold.
+        listing_price:
+          allOf:
+            - $ref: "#/components/schemas/Uint256"
+          nullable: true
+          description: The resale asking price, set once a listing is mined; null when not listed.
         record:
           type: object
           additionalProperties: true
@@ -338,6 +344,64 @@ components:
           type: string
           format: uuid
           nullable: true
+
+    ListingRequest:
+      type: object
+      required: [price]
+      properties:
+        price:
+          allOf:
+            - $ref: "#/components/schemas/Uint256"
+          description: >
+            The asking price in base units, at most the event's face value
+            times max_resale_bps / 10000. Listing again changes the price.
+
+    PurchaseRequest:
+      type: object
+      properties:
+        max_price:
+          allOf:
+            - $ref: "#/components/schemas/Uint256"
+          description: >
+            The most you agree to pay. Defaults to the price listed now. If
+            the seller raises the price before the purchase is mined, the
+            contract refuses it.
+
+    ResaleAction:
+      type: object
+      description: >
+        A listing, cancellation or purchase, saved and on its way. The ticket
+        is shown as it is now; it changes once the operation is mined.
+      required: [operation_id, ticket]
+      properties:
+        operation_id:
+          type: string
+          format: uuid
+        ticket:
+          $ref: "#/components/schemas/Ticket"
+
+    Listing:
+      type: object
+      required: [ticket_id, token_id, price, seller_address]
+      properties:
+        ticket_id:
+          type: string
+          format: uuid
+        token_id:
+          $ref: "#/components/schemas/Uint256"
+        price:
+          $ref: "#/components/schemas/Uint256"
+        seller_address:
+          $ref: "#/components/schemas/Address"
+
+    Listings:
+      type: object
+      required: [listings]
+      properties:
+        listings:
+          type: array
+          items:
+            $ref: "#/components/schemas/Listing"
 
     Operation:
       type: object
@@ -531,6 +595,24 @@ paths:
         "422":
           $ref: "#/components/responses/Problem"
 
+  /events/{id}/listings:
+    get:
+      tags: [Resale]
+      operationId: getListings
+      summary: Tickets listed for resale, cheapest first
+      description: A listing shows once its transaction is mined.
+      parameters:
+        - $ref: "#/components/parameters/EventID"
+      responses:
+        "200":
+          description: The event's listings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Listings"
+        "404":
+          $ref: "#/components/responses/Problem"
+
   /tickets/{id}:
     get:
       tags: [Tickets]
@@ -546,6 +628,111 @@ paths:
               schema:
                 $ref: "#/components/schemas/Ticket"
         "404":
+          $ref: "#/components/responses/Problem"
+
+  /tickets/{id}/listing:
+    put:
+      tags: [Resale]
+      operationId: listTicket
+      summary: List your ticket for resale, or change its price
+      description: >
+        Sent from your wallet as listForResale. Only the holder can list, at
+        no more than the resale cap, and only before the event starts.
+      security:
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/TicketID"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ListingRequest"
+      responses:
+        "202":
+          description: Saved; the listing is on its way.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResaleAction"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+    delete:
+      tags: [Resale]
+      operationId: cancelListing
+      summary: Take your ticket off the resale market
+      description: Sent from your wallet as cancelListing.
+      security:
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/TicketID"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "202":
+          description: Saved; the cancellation is on its way.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResaleAction"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+
+  /tickets/{id}/purchase:
+    post:
+      tags: [Resale]
+      operationId: buyResale
+      summary: Buy a ticket listed for resale
+      description: >
+        Sent from your wallet as buyResale; once mined, the ticket is yours.
+        No money moves yet: the contract records the price.
+      security:
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/TicketID"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PurchaseRequest"
+      responses:
+        "202":
+          description: Saved; the purchase is on its way.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResaleAction"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "422":
           $ref: "#/components/responses/Problem"
 
   /tickets/{id}/pass:

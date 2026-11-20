@@ -134,6 +134,60 @@ func TestAPIEventTicketCheckInOnBesu(t *testing.T) {
 	}
 	c.do("GET", "/operations/"+*t1.CheckInOp, alice.Token, "", "", 404, nil)
 
+	// Resale of ticket 2: alice lists it at the cap, bob buys it, and the gate
+	// checks bob in with his own pass. Each step is a transaction from that
+	// user's wallet.
+	var bob struct {
+		Token         string `json:"token"`
+		WalletAddress string `json:"wallet_address"`
+	}
+	c.do("POST", "/users", "", "", `{"subject":"bob"}`, 201, &bob)
+	c.do("PUT", "/tickets/"+t2.ID+"/listing", bob.Token, "list-0", `{"price":"110000000"}`, 403, nil)
+	c.do("PUT", "/tickets/"+t2.ID+"/listing", alice.Token, "list-0", `{"price":"110000001"}`, 422, nil)
+	var action struct {
+		OperationID string `json:"operation_id"`
+	}
+	c.do("PUT", "/tickets/"+t2.ID+"/listing", alice.Token, "list-1", `{"price":"110000000"}`, 202, &action)
+	c.waitOp(action.OperationID, alice.Token)
+	var listings struct {
+		Listings []struct {
+			TicketID string `json:"ticket_id"`
+			Price    string `json:"price"`
+			Seller   string `json:"seller_address"`
+		} `json:"listings"`
+	}
+	c.do("GET", "/events/"+ev.ID+"/listings", "", "", "", 200, &listings)
+	if len(listings.Listings) != 1 || listings.Listings[0].TicketID != t2.ID || listings.Listings[0].Price != "110000000" ||
+		listings.Listings[0].Seller != strings.ToLower(alice.WalletAddress) {
+		t.Fatalf("listings: %+v", listings)
+	}
+	info2, err := nft.UnpackTicketInfo(call(t, a.chain, contract, nft.PackTicketInfo(big.NewInt(2))))
+	if err != nil || info2.ListingPrice.String() != "110000000" {
+		t.Fatalf("ticketInfo(2) after listing = %+v, %v", info2, err)
+	}
+
+	c.do("POST", "/tickets/"+t2.ID+"/purchase", alice.Token, "buy-0", "", 422, nil)
+	c.do("POST", "/tickets/"+t2.ID+"/purchase", bob.Token, "buy-0", `{"max_price":"100000000"}`, 422, nil)
+	c.do("POST", "/tickets/"+t2.ID+"/purchase", bob.Token, "buy-1", "", 202, &action)
+	c.waitOp(action.OperationID, bob.Token)
+	c.do("GET", "/tickets/"+t2.ID, "", "", "", 200, &t2)
+	owner2, err := nft.UnpackOwnerOf(call(t, a.chain, contract, nft.PackOwnerOf(big.NewInt(2))))
+	if err != nil || !strings.EqualFold(owner2.Hex(), bob.WalletAddress) || t2.Owner != strings.ToLower(bob.WalletAddress) {
+		t.Fatalf("after the resale: on-chain owner %s (%v), API %+v; bob %s", owner2.Hex(), err, t2, bob.WalletAddress)
+	}
+	c.do("GET", "/events/"+ev.ID+"/listings", "", "", "", 200, &listings)
+	if len(listings.Listings) != 0 {
+		t.Fatalf("listings after the sale: %+v", listings)
+	}
+
+	// Alice's earlier pass for ticket 2 is void now; bob's works.
+	c.do("POST", "/tickets/"+t2.ID+"/pass", alice.Token, "", "", 403, nil)
+	c.do("POST", "/tickets/"+t2.ID+"/check-in", org.Token, "in-3", string(pass2), 422, nil)
+	var bobsPass json.RawMessage
+	c.do("POST", "/tickets/"+t2.ID+"/pass", bob.Token, "", "", 200, &bobsPass)
+	c.do("POST", "/tickets/"+t2.ID+"/check-in", org.Token, "in-4", string(bobsPass), 202, &t2)
+	c.waitFor("/tickets/"+t2.ID, "checked_in", &t2)
+
 	c.do("GET", "/openapi.yaml", "", "", "", 200, nil)
 	c.do("GET", "/docs", "", "", "", 200, nil)
 }
@@ -184,6 +238,26 @@ func (c *client) do(method, path, token, idemKey, body string, want int, out any
 		if err := json.Unmarshal(raw, out); err != nil {
 			c.t.Fatalf("%s %s: %v in %s", method, path, err, raw)
 		}
+	}
+}
+
+// waitOp polls an operation until it is final, and fails the test unless it
+// was mined.
+func (c *client) waitOp(id, token string) {
+	c.t.Helper()
+	deadline := time.Now().Add(30 * time.Second)
+	for {
+		c.do("GET", "/operations/"+id, token, "", "", 200, nil)
+		switch c.last["status"] {
+		case "mined":
+			return
+		case "reverted", "failed":
+			c.t.Fatalf("operation %s: %v", id, c.last)
+		}
+		if time.Now().After(deadline) {
+			c.t.Fatalf("operation %s: status %v after 30 s", id, c.last["status"])
+		}
+		time.Sleep(250 * time.Millisecond)
 	}
 }
 

@@ -31,6 +31,7 @@ const (
 	gasDeploy  = 6_000_000
 	gasMint    = 300_000
 	gasCheckIn = 200_000
+	gasResale  = 200_000 // listForResale, cancelListing, buyResale
 )
 
 // Estimator dry-runs a call on the node. *chain.Client satisfies it.
@@ -218,6 +219,17 @@ func contractRefusal(reason string) *Error {
 		return fail(Rejected, "sold_out", "Sold out", "Every ticket for this event has been issued.")
 	case strings.HasPrefix(reason, "EventStarted"):
 		return fail(Rejected, "event_started", "Event started", "The event has started.")
+	case strings.HasPrefix(reason, "NotTicketHolder"):
+		return errNotYourTicket
+	case strings.HasPrefix(reason, "PriceAboveCap"):
+		return fail(Rejected, "price_above_cap", "Price above the cap", "The contract would refuse "+reason+".")
+	case strings.HasPrefix(reason, "NotListed"):
+		return errNotListed
+	case strings.HasPrefix(reason, "PriceAboveMaxPrice"):
+		return fail(Rejected, "price_changed", "Price changed",
+			"The ticket's price is now above max_price ("+reason+").")
+	case strings.HasPrefix(reason, "BuyerIsSeller"):
+		return fail(Rejected, "buyer_is_seller", "Buyer is the seller", "You already hold this ticket.")
 	case strings.HasPrefix(reason, "PassExpired"):
 		return errPassExpired
 	case strings.HasPrefix(reason, "NotSignedByHolder"):

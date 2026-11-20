@@ -192,6 +192,34 @@ type EventStatus string
 // Hash defines model for Hash.
 type Hash = string
 
+// Listing defines model for Listing.
+type Listing struct {
+	// Price A non-negative integer up to 2^256 - 1, as a decimal string.
+	//
+	// Example: 100000000
+	Price Uint256 `json:"price"`
+
+	// SellerAddress Example: 0x5aeda56215b167893e80b4fe645ba6d5bab767de
+	SellerAddress Address            `json:"seller_address"`
+	TicketId      openapi_types.UUID `json:"ticket_id"`
+
+	// TokenId A non-negative integer up to 2^256 - 1, as a decimal string.
+	//
+	// Example: 100000000
+	TokenId Uint256 `json:"token_id"`
+}
+
+// ListingRequest defines model for ListingRequest.
+type ListingRequest struct {
+	// Price The asking price in base units, at most the event's face value times max_resale_bps / 10000. Listing again changes the price.
+	Price Uint256 `json:"price"`
+}
+
+// Listings defines model for Listings.
+type Listings struct {
+	Listings []Listing `json:"listings"`
+}
+
 // Metadata ERC-721 metadata, plus the record the on-chain hash commits to.
 type Metadata struct {
 	Attributes []struct {
@@ -301,17 +329,32 @@ type Problem struct {
 	Title string `json:"title"`
 }
 
+// PurchaseRequest defines model for PurchaseRequest.
+type PurchaseRequest struct {
+	// MaxPrice The most you agree to pay. Defaults to the price listed now. If the seller raises the price before the purchase is mined, the contract refuses it.
+	MaxPrice *Uint256 `json:"max_price,omitempty"`
+}
+
+// ResaleAction A listing, cancellation or purchase, saved and on its way. The ticket is shown as it is now; it changes once the operation is mined.
+type ResaleAction struct {
+	OperationId openapi_types.UUID `json:"operation_id"`
+	Ticket      Ticket             `json:"ticket"`
+}
+
 // Ticket defines model for Ticket.
 type Ticket struct {
 	CheckinOperationId *openapi_types.UUID `json:"checkin_operation_id,omitempty"`
 	EventId            openapi_types.UUID  `json:"event_id"`
 	Id                 openapi_types.UUID  `json:"id"`
 
+	// ListingPrice The resale asking price, set once a listing is mined; null when not listed.
+	ListingPrice *Uint256 `json:"listing_price,omitempty"`
+
 	// MetadataUrl The token URI the contract reports for this ticket.
 	MetadataUrl     string             `json:"metadata_url"`
 	MintOperationId openapi_types.UUID `json:"mint_operation_id"`
 
-	// OwnerAddress Set once the mint is mined.
+	// OwnerAddress Set once the mint is mined; changes when the ticket is resold.
 	OwnerAddress *Address `json:"owner_address,omitempty"`
 
 	// Record The canonical off-chain record. Its keccak256 is stored on-chain.
@@ -369,6 +412,24 @@ type CheckInParams struct {
 	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
 }
 
+// CancelListingParams defines parameters for CancelListing.
+type CancelListingParams struct {
+	// IdempotencyKey Any string up to 200 characters that identifies this request, for example a UUID. Reuse it when retrying.
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// ListTicketParams defines parameters for ListTicket.
+type ListTicketParams struct {
+	// IdempotencyKey Any string up to 200 characters that identifies this request, for example a UUID. Reuse it when retrying.
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// BuyResaleParams defines parameters for BuyResale.
+type BuyResaleParams struct {
+	// IdempotencyKey Any string up to 200 characters that identifies this request, for example a UUID. Reuse it when retrying.
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
 // CreateEventJSONRequestBody defines body for CreateEvent for application/json ContentType.
 type CreateEventJSONRequestBody = NewEvent
 
@@ -377,6 +438,12 @@ type CreateOrganizerJSONRequestBody = NewOrganizer
 
 // CheckInJSONRequestBody defines body for CheckIn for application/json ContentType.
 type CheckInJSONRequestBody = CheckInRequest
+
+// ListTicketJSONRequestBody defines body for ListTicket for application/json ContentType.
+type ListTicketJSONRequestBody = ListingRequest
+
+// BuyResaleJSONRequestBody defines body for BuyResale for application/json ContentType.
+type BuyResaleJSONRequestBody = PurchaseRequest
 
 // CreateUserJSONRequestBody defines body for CreateUser for application/json ContentType.
 type CreateUserJSONRequestBody = NewUser
@@ -389,6 +456,9 @@ type ServerInterface interface {
 	// GetEvent Get an event
 	// (GET /events/{id})
 	GetEvent(w http.ResponseWriter, r *http.Request, id EventID)
+	// GetListings Tickets listed for resale, cheapest first
+	// (GET /events/{id}/listings)
+	GetListings(w http.ResponseWriter, r *http.Request, id EventID)
 	// BuyTicket Buy a ticket
 	// (POST /events/{id}/tickets)
 	BuyTicket(w http.ResponseWriter, r *http.Request, id EventID, params BuyTicketParams)
@@ -407,9 +477,18 @@ type ServerInterface interface {
 	// CheckIn Check a ticket in at the gate
 	// (POST /tickets/{id}/check-in)
 	CheckIn(w http.ResponseWriter, r *http.Request, id TicketID, params CheckInParams)
+	// CancelListing Take your ticket off the resale market
+	// (DELETE /tickets/{id}/listing)
+	CancelListing(w http.ResponseWriter, r *http.Request, id TicketID, params CancelListingParams)
+	// ListTicket List your ticket for resale, or change its price
+	// (PUT /tickets/{id}/listing)
+	ListTicket(w http.ResponseWriter, r *http.Request, id TicketID, params ListTicketParams)
 	// CreatePass Make a check-in pass for your ticket
 	// (POST /tickets/{id}/pass)
 	CreatePass(w http.ResponseWriter, r *http.Request, id TicketID)
+	// BuyResale Buy a ticket listed for resale
+	// (POST /tickets/{id}/purchase)
+	BuyResale(w http.ResponseWriter, r *http.Request, id TicketID, params BuyResaleParams)
 	// CreateUser Create a user and their custodial wallet
 	// (POST /users)
 	CreateUser(w http.ResponseWriter, r *http.Request)
@@ -486,6 +565,32 @@ func (siw *ServerInterfaceWrapper) GetEvent(w http.ResponseWriter, r *http.Reque
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetEvent(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetListings operation middleware
+func (siw *ServerInterfaceWrapper) GetListings(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id EventID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetListings(w, r, id)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -704,6 +809,114 @@ func (siw *ServerInterfaceWrapper) CheckIn(w http.ResponseWriter, r *http.Reques
 	handler.ServeHTTP(w, r)
 }
 
+// CancelListing operation middleware
+func (siw *ServerInterfaceWrapper) CancelListing(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id TicketID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CancelListingParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = IdempotencyKey
+
+	} else {
+		err := fmt.Errorf("Header parameter Idempotency-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "Idempotency-Key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CancelListing(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListTicket operation middleware
+func (siw *ServerInterfaceWrapper) ListTicket(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id TicketID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListTicketParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = IdempotencyKey
+
+	} else {
+		err := fmt.Errorf("Header parameter Idempotency-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "Idempotency-Key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListTicket(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // CreatePass operation middleware
 func (siw *ServerInterfaceWrapper) CreatePass(w http.ResponseWriter, r *http.Request) {
 
@@ -721,6 +934,60 @@ func (siw *ServerInterfaceWrapper) CreatePass(w http.ResponseWriter, r *http.Req
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CreatePass(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// BuyResale operation middleware
+func (siw *ServerInterfaceWrapper) BuyResale(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id TicketID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params BuyResaleParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = IdempotencyKey
+
+	} else {
+		err := fmt.Errorf("Header parameter Idempotency-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "Idempotency-Key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.BuyResale(w, r, id, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -869,7 +1136,11 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/events", wrapper.CreateEvent)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/events/{id}", wrapper.GetEvent)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/events/{id}/tickets", wrapper.BuyTicket)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/events/{id}/listings", wrapper.GetListings)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/tickets/{id}", wrapper.GetTicket)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/tickets/{id}/listing", wrapper.CancelListing)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/tickets/{id}/listing", wrapper.ListTicket)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/tickets/{id}/purchase", wrapper.BuyResale)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/tickets/{id}/pass", wrapper.CreatePass)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/tickets/{id}/check-in", wrapper.CheckIn)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/operations/{id}", wrapper.GetOperation)

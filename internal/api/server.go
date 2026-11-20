@@ -4,6 +4,7 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	_ "embed"
 	"encoding/json"
@@ -139,6 +140,21 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	_ = json.NewEncoder(w).Encode(v)
 }
 
+// decodeOptional is decode for a body that may be left out: no body leaves v
+// as it is.
+func decodeOptional(w http.ResponseWriter, r *http.Request, v any) bool {
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 64<<10))
+	if err != nil {
+		writeProblem(w, http.StatusBadRequest, "invalid_json", "Invalid JSON", err.Error())
+		return false
+	}
+	if len(bytes.TrimSpace(body)) == 0 {
+		return true
+	}
+	r.Body = io.NopCloser(bytes.NewReader(body)) // the body is read; give decode the same bytes
+	return decode(w, r, v)
+}
+
 // decode reads a JSON body of at most 64 KiB, refusing unknown fields.
 func decode(w http.ResponseWriter, r *http.Request, v any) bool {
 	d := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64<<10))
@@ -268,21 +284,87 @@ func (s *Server) CheckIn(w http.ResponseWriter, r *http.Request, id TicketID, pa
 }
 
 func (s *Server) writeTicket(w http.ResponseWriter, r *http.Request, status int, t ticketing.Ticket) {
-	var record map[string]any
-	if err := json.Unmarshal(t.Record, &record); err != nil {
+	out, err := ticketJSON(t)
+	if err != nil {
 		s.fail(w, r, err)
 		return
 	}
+	writeJSON(w, status, out)
+}
+
+func ticketJSON(t ticketing.Ticket) (Ticket, error) {
+	var record map[string]any
+	if err := json.Unmarshal(t.Record, &record); err != nil {
+		return Ticket{}, err
+	}
 	out := Ticket{
 		Id: uuid.MustParse(t.ID), EventId: uuid.MustParse(t.EventID), TokenId: t.TokenID,
-		Status: TicketStatus(t.Status), OwnerAddress: t.OwnerAddress, Record: record, RecordHash: t.RecordHash,
+		Status: TicketStatus(t.Status), OwnerAddress: t.OwnerAddress, ListingPrice: t.ListingPrice,
+		Record: record, RecordHash: t.RecordHash,
 		MetadataUrl: t.MetadataURL, MintOperationId: uuid.MustParse(t.MintOperationID),
 	}
 	if t.CheckInOperationID != nil {
 		id := uuid.MustParse(*t.CheckInOperationID)
 		out.CheckinOperationId = &id
 	}
-	writeJSON(w, status, out)
+	return out, nil
+}
+
+// ---- Resale ----
+
+func (s *Server) GetListings(w http.ResponseWriter, r *http.Request, id EventID) {
+	ls, err := s.svc.Listings(r.Context(), id.String())
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	out := Listings{Listings: make([]Listing, 0, len(ls))}
+	for _, l := range ls {
+		out.Listings = append(out.Listings, Listing{
+			TicketId: uuid.MustParse(l.TicketID), TokenId: l.TokenID, Price: l.Price, SellerAddress: l.Seller,
+		})
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+func (s *Server) ListTicket(w http.ResponseWriter, r *http.Request, id TicketID, params ListTicketParams) {
+	var in ListingRequest
+	if !decode(w, r, &in) {
+		return
+	}
+	a, err := s.svc.ListTicket(r.Context(), caller(r), id.String(), in.Price, params.IdempotencyKey)
+	s.writeResale(w, r, a, err)
+}
+
+func (s *Server) CancelListing(w http.ResponseWriter, r *http.Request, id TicketID, params CancelListingParams) {
+	a, err := s.svc.CancelListing(r.Context(), caller(r), id.String(), params.IdempotencyKey)
+	s.writeResale(w, r, a, err)
+}
+
+func (s *Server) BuyResale(w http.ResponseWriter, r *http.Request, id TicketID, params BuyResaleParams) {
+	var in PurchaseRequest
+	if !decodeOptional(w, r, &in) {
+		return
+	}
+	var maxPrice string
+	if in.MaxPrice != nil {
+		maxPrice = *in.MaxPrice
+	}
+	a, err := s.svc.BuyResale(r.Context(), caller(r), id.String(), maxPrice, params.IdempotencyKey)
+	s.writeResale(w, r, a, err)
+}
+
+func (s *Server) writeResale(w http.ResponseWriter, r *http.Request, a ticketing.ResaleAction, err error) {
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	t, err := ticketJSON(a.Ticket)
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusAccepted, ResaleAction{OperationId: uuid.MustParse(a.OperationID), Ticket: t})
 }
 
 func (s *Server) GetMetadata(w http.ResponseWriter, r *http.Request, eventID openapi_types.UUID, tokenID string) {
