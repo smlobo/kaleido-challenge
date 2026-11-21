@@ -1,0 +1,90 @@
+# The demo frontend: the built page behind nginx, which also passes /api/...
+# on to the ticketing Service, so the browser sees one origin (no CORS).
+#
+# The image is built from frontend/ and pushed to the microk8s registry
+# (README.md). Static files and no state: one replica is enough, and a new
+# pod starts in a second.
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: ticketing
+  labels:
+    app: frontend
+  annotations:
+    metallb.universe.tf/loadBalancerIPs: 10.10.1.48
+spec:
+  type: LoadBalancer
+  selector:
+    app: frontend
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: ticketing
+  labels:
+    app: frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        # nginx-unprivileged's user, by number (see 40-ticketing.yaml).
+        runAsUser: 101
+        runAsGroup: 101
+      containers:
+        - name: frontend
+          image: localhost:32000/kaleido-ticketing-frontend:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            # Where /api/... goes: the ticketing Service, in this namespace.
+            - name: TICKETING_URL
+              value: http://ticketing
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            periodSeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          # nginx writes its config (filled in from the template at start),
+          # its pid file and temp files: the only writable places.
+          volumeMounts:
+            - name: conf
+              mountPath: /etc/nginx/conf.d
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              memory: 64Mi
+      volumes:
+        - name: conf
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}

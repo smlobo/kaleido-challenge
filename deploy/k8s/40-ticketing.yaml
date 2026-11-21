@@ -1,0 +1,151 @@
+# The ticketing service: two replicas behind a MetalLB LoadBalancer.
+#
+# Several instances are safe: migrations run under an advisory lock, nonces
+# come from a row lock, and the outbox loops share rows with FOR UPDATE SKIP
+# LOCKED. Traces name each pod (service.instance.id, host.name = pod name).
+#
+# The image is built for amd64 and pushed to the microk8s registry
+# (README.md). KEY_ENCRYPTION_KEY and ADMIN_TOKEN come from ticketing-secret.
+apiVersion: v1
+kind: Service
+metadata:
+  name: ticketing
+  namespace: ticketing
+  labels:
+    app: ticketing
+  annotations:
+    metallb.universe.tf/loadBalancerIPs: 10.10.1.45
+spec:
+  type: LoadBalancer
+  selector:
+    app: ticketing
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ticketing
+  namespace: ticketing
+  labels:
+    app: ticketing
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ticketing
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: ticketing
+    spec:
+      # Prefer different nodes, so one node going down leaves a pod serving.
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchLabels:
+                    app: ticketing
+      securityContext:
+        runAsNonRoot: true
+        # The image's USER is distroless's "nonroot" by name; the kubelet can
+        # only verify a non-root user by number, so give it: 65532 is nonroot.
+        runAsUser: 65532
+        runAsGroup: 65532
+      # Kubernetes has no depends_on: wait for Postgres and Besu to accept
+      # connections before the service starts (it also retries for 30 s).
+      initContainers:
+        - name: wait-for-dependencies
+          image: busybox:1.37.0
+          command:
+            - sh
+            - -c
+            - |
+              until nc -z postgres 5432 && nc -z besu 8545; do
+                echo "waiting for postgres and besu"; sleep 2
+              done
+          securityContext:
+            runAsUser: 65532
+            allowPrivilegeEscalation: false
+      containers:
+        - name: ticketing
+          image: localhost:32000/kaleido-ticketing:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: KEY_ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: ticketing-secret
+                  key: key-encryption-key
+            - name: ADMIN_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: ticketing-secret
+                  key: admin-token
+                  optional: true
+            # The same plain password as 10-postgres.yaml, as in compose.
+            - name: DATABASE_URL
+              value: postgres://ticketing:ticketing@postgres:5432/ticketing?sslmode=disable
+            - name: ETH_RPC_URL
+              value: http://besu:8545
+            # How clients reach the API: in ticket metadata URIs, written into
+            # each event's contract when it's created. The public hostname
+            # (a reverse proxy, with TLS, to the LoadBalancer below).
+            - name: PUBLIC_BASE_URL
+              value: https://kaleido-backend.lobo.codes
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: http://jaeger:4318
+            - name: OTEL_SERVICE_NAME
+              value: ticketing
+          # Ready only when Postgres and Besu answer; alive as long as the
+          # process serves, so a Besu outage doesn't restart healthy pods.
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8080
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 40
+            periodSeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 100m
+              memory: 64Mi
+            limits:
+              memory: 256Mi
+      # Time to finish in-flight requests on SIGTERM (the service allows 10 s).
+      terminationGracePeriodSeconds: 20
+---
+# Keep at least one pod up while a node is drained (one at a time, as in the
+# cluster's upgrade notes).
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: ticketing
+  namespace: ticketing
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: ticketing

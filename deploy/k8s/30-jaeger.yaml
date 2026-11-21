@@ -1,0 +1,77 @@
+# Jaeger all-in-one: receives traces from the service (OTLP/HTTP, 4318) and
+# Besu (OTLP/gRPC, 4317), and serves its UI on a LoadBalancer IP. Traces are
+# kept in memory, so they go when the pod restarts.
+apiVersion: v1
+kind: Service
+metadata:
+  name: jaeger
+  namespace: ticketing
+  labels:
+    app: jaeger
+spec:
+  selector:
+    app: jaeger
+  ports:
+    - name: otlp-grpc
+      port: 4317
+      targetPort: 4317
+    - name: otlp-http
+      port: 4318
+      targetPort: 4318
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jaeger-ui
+  namespace: ticketing
+  labels:
+    app: jaeger
+  annotations:
+    metallb.universe.tf/loadBalancerIPs: 10.10.1.46
+spec:
+  type: LoadBalancer
+  selector:
+    app: jaeger
+  ports:
+    - name: ui
+      port: 80
+      targetPort: 16686
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jaeger
+  namespace: ticketing
+  labels:
+    app: jaeger
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: jaeger
+  template:
+    metadata:
+      labels:
+        app: jaeger
+    spec:
+      containers:
+        - name: jaeger
+          image: jaegertracing/jaeger:2.23.0
+          ports:
+            - name: otlp-grpc
+              containerPort: 4317
+            - name: otlp-http
+              containerPort: 4318
+            - name: ui
+              containerPort: 16686
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 16686
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 512Mi

@@ -1,0 +1,86 @@
+# Postgres: the service's state store. One replica.
+#
+# Ephemeral on purpose, like compose: the data is on an emptyDir, which
+# survives container restarts (a crash, a failed liveness probe) but not the
+# pod going away (deleted, evicted, its node rebooted). The chain
+# (20-besu.yaml) is ephemeral the same way, and the two must be reset
+# together: a new chain under a database that remembers the old one leaves
+# deploys stuck on nonces the new chain has never seen (README.md, "If the
+# chain or the database was reset"). Requests equal limits, so under memory
+# pressure Kubernetes evicts other pods first.
+#
+# The password is a plain value, as in docker/docker-compose.yaml: Postgres is
+# reachable only inside the cluster (no LoadBalancer), and holds no usable
+# secrets. Its signing keys are encrypted under KEY_ENCRYPTION_KEY, which it
+# never sees, and API tokens are stored only as hashes.
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: ticketing
+  labels:
+    app: postgres
+spec:
+  selector:
+    app: postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: ticketing
+  labels:
+    app: postgres
+spec:
+  serviceName: postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:17.6-alpine
+          ports:
+            - name: postgres
+              containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              value: ticketing
+            - name: POSTGRES_DB
+              value: ticketing
+            - name: POSTGRES_PASSWORD
+              value: ticketing
+            # A subdirectory, so the volume's own top directory can be anything.
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "ticketing", "-d", "ticketing"]
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "ticketing", "-d", "ticketing"]
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: 250m
+              memory: 512Mi
+      volumes:
+        - name: data
+          emptyDir: {}

@@ -107,7 +107,7 @@ async function call<T>(
   if (opts.body !== undefined) headers["Content-Type"] = "application/json";
   if (opts.token) headers["Authorization"] = `Bearer ${opts.token}`;
   // Writes that send a transaction need a key; a fresh one per form submit.
-  if (opts.idempotent) headers["Idempotency-Key"] = crypto.randomUUID();
+  if (opts.idempotent) headers["Idempotency-Key"] = uuid();
 
   let res: Response;
   try {
@@ -173,3 +173,16 @@ export const api = {
   // Readable only by the caller who started the operation.
   getOperation: (id: string, token: string) => call<Operation>("GET", `/operations/${id}`, { token }),
 };
+
+/**
+ * A random (v4) UUID. crypto.randomUUID exists only on HTTPS or localhost,
+ * and the cluster serves the page over plain http too; getRandomValues
+ * works everywhere.
+ */
+function uuid(): string {
+  const b = crypto.getRandomValues(new Uint8Array(16));
+  b[6] = (b[6] & 0x0f) | 0x40; // version 4
+  b[8] = (b[8] & 0x3f) | 0x80; // RFC 4122 variant
+  const h = Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
+}

@@ -6,11 +6,10 @@ export function Copyable({ value, short = true }: { value: string; short?: boole
   const [copied, setCopied] = useState(false);
   const shown = short && value.length > 18 ? `${value.slice(0, 10)}…${value.slice(-6)}` : value;
   const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(value);
+    if (await writeClipboard(value)) {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
-    } catch {
+    } else {
       window.prompt("Copy this value:", value);
     }
   };
@@ -59,4 +58,34 @@ export function ErrorLine({ error }: { error: unknown }) {
 
 export function Empty({ children }: { children: ReactNode }) {
   return <p className="empty">{children}</p>;
+}
+
+/**
+ * Copies text; false if the browser wouldn't. navigator.clipboard exists only
+ * on HTTPS or localhost; over plain http (the cluster's LAN address) the older
+ * execCommand("copy") on a selected, off-screen textarea still works.
+ */
+async function writeClipboard(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    // fall through to the older way
+  }
+  const area = document.createElement("textarea");
+  area.value = text;
+  area.setAttribute("readonly", "");
+  area.style.position = "fixed";
+  area.style.left = "-9999px";
+  document.body.appendChild(area);
+  area.select();
+  try {
+    return document.execCommand("copy");
+  } catch {
+    return false;
+  } finally {
+    area.remove();
+  }
 }

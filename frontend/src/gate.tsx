@@ -257,7 +257,10 @@ function Camera({ onScan, onError }: { onScan: (text: string) => void; onError: 
         frame = requestAnimationFrame(tick);
       })
       .catch((e) => onError(new Error(`Camera unavailable: ${e instanceof Error ? e.message : e}`)));
-    if (!navigator.mediaDevices) onError(new Error("No camera access in this browser."));
+    // Browsers offer the camera only on HTTPS or localhost (not the cluster's
+    // plain-http address): then the image upload or paste still works.
+    if (!navigator.mediaDevices)
+      onError(new Error(window.isSecureContext ? "No camera access in this browser." : "The camera needs HTTPS or localhost here: upload a picture of the pass, or paste it."));
 
     return () => {
       cancelAnimationFrame(frame);

@@ -1,0 +1,8 @@
+# Everything for the ticketing stack lives in this namespace, so it can be
+# listed, and removed, in one go. Apply the files in this folder in order:
+#   kubectl apply -f deploy/k8s/
+# after creating the secrets described in deploy/k8s/README.md.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ticketing

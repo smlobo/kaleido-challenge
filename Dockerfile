@@ -10,7 +10,12 @@
 # no shell, no solc and nothing else to patch.
 
 # --- build ---
-FROM golang:1.27.0-alpine3.23 AS build
+# The build stage runs on the builder's own platform and cross-compiles for
+# the target, so building amd64 on an arm64 Mac (for the cluster, see
+# deploy/k8s/README.md) needs no emulation:
+#   docker buildx build --platform linux/amd64 -t ... .
+FROM --platform=$BUILDPLATFORM golang:1.27.0-alpine3.23 AS build
+ARG TARGETOS TARGETARCH
 WORKDIR /src
 
 # Dependencies first, so editing the code does not re-download them.
@@ -21,7 +26,7 @@ COPY cmd ./cmd
 COPY internal ./internal
 # CGO off: a static binary that runs on distroless/static. go-ethereum then
 # uses its pure-Go secp256k1, which signs the same way.
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/ticketing ./cmd/ticketing
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags="-s -w" -o /out/ticketing ./cmd/ticketing
 
 # --- runtime ---
 FROM gcr.io/distroless/static-debian12:nonroot

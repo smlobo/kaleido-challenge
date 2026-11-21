@@ -1,0 +1,206 @@
+# Besu: the single-validator QBFT chain (chain ID 1337, 2 s blocks, free gas),
+# as in docker/docker-compose.yaml. One replica: it is the only validator, so
+# it cannot scale.
+#
+# Ephemeral on purpose, like compose: the data is on an emptyDir, which
+# survives container restarts (a crash, a failed liveness probe) but not the
+# pod going away (deleted, evicted, its node rebooted). The chain
+# (20-besu.yaml) is ephemeral the same way, and the two must be reset
+# together: a new chain under a database that remembers the old one leaves
+# deploys stuck on nonces the new chain has never seen (README.md, "If the
+# chain or the database was reset"). Requests equal limits, so under memory
+# pressure Kubernetes evicts other pods first.
+#
+# Tracing: Besu's built-in OpenTelemetry sends JSON-RPC spans to Jaeger
+# (30-jaeger.yaml), joining the service's traces from the b3 header.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: besu-genesis
+  namespace: ticketing
+data:
+  genesis.json: |
+    {
+      "config": {
+        "chainId": 1337,
+        "berlinBlock": 0,
+        "londonBlock": 0,
+        "shanghaiTime": 0,
+        "cancunTime": 0,
+        "pragueTime": 0,
+        "zeroBaseFee": true,
+        "qbft": { "blockperiodseconds": 2, "epochlength": 30000, "requesttimeoutseconds": 4 }
+      },
+      "nonce": "0x0",
+      "timestamp": "0x0",
+      "gasLimit": "0x1C9C380",
+      "difficulty": "0x1",
+      "mixHash":
+      "0x63746963616c2062797a616e74696e65206661756c7420746f6c6572616e6365",
+      "coinbase": "0x0000000000000000000000000000000000000000",
+      "extraData":
+      "0xf83aa00000000000000000000000000000000000000000000000000000000000000000d594950bffd0f9ed35b37879c186ae770d2c94f08147c080c0",
+      "alloc": {
+        "f39Fd6e51aad88F6F4ce6aB8827279cffFb92266": { "balance": "0xd3c21bcecceda1000000" },
+        "70997970C51812dc3A010C7d01b50e0d17dc79C8": { "balance": "0xd3c21bcecceda1000000" },
+        "3C44CdDdB6a900fa2b585dd299e03d12FA4293BC": { "balance": "0xd3c21bcecceda1000000" },
+        "90F79bf6EB2c4f870365E785982E1f101E93b906": { "balance": "0xd3c21bcecceda1000000" },
+        "15d34AAf54267DB7D7c367839AAf71A00a2C6A65": { "balance": "0xd3c21bcecceda1000000" },
+        "9965507D1a55bcC2695C58ba16FB37d819B0A4dc": { "balance": "0xd3c21bcecceda1000000" },
+        "976EA74026E726554dB657fA54763abd0C3a0aa9": { "balance": "0xd3c21bcecceda1000000" },
+        "14dC79964da2C08b23698B3D3cc7Ca32193d9955": { "balance": "0xd3c21bcecceda1000000" },
+        "23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f": { "balance": "0xd3c21bcecceda1000000" },
+        "a0Ee7A142d267C1f36714E4a8F75612F20a79720": { "balance": "0xd3c21bcecceda1000000" }
+      }
+    }
+---
+# The validator's node key. Its address is encoded in the genesis extraData,
+# so it can't change without a new genesis. This is the same dev key as in
+# docker/docker-compose.yaml, which is already public; a real network would
+# generate its own and keep it out of the repository.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: besu-validator-key
+  namespace: ticketing
+type: Opaque
+stringData:
+  validator.key: "0x77fe91741236e10635bf78fbf2a24433967381034e964578934d8f6f7e8ac658"
+---
+# The service's way in: http://besu:8545.
+apiVersion: v1
+kind: Service
+metadata:
+  name: besu
+  namespace: ticketing
+  labels:
+    app: besu
+spec:
+  selector:
+    app: besu
+  ports:
+    - name: rpc-http
+      port: 8545
+      targetPort: 8545
+    - name: rpc-ws
+      port: 8546
+      targetPort: 8546
+---
+# JSON-RPC from outside the cluster, for cast and scripts/find_activity.py.
+# Read-only use is the point; anyone on the LAN can reach it.
+apiVersion: v1
+kind: Service
+metadata:
+  name: besu-rpc
+  namespace: ticketing
+  labels:
+    app: besu
+  annotations:
+    metallb.universe.tf/loadBalancerIPs: 10.10.1.47
+spec:
+  type: LoadBalancer
+  selector:
+    app: besu
+  ports:
+    - name: rpc-http
+      port: 8545
+      targetPort: 8545
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: besu
+  namespace: ticketing
+  labels:
+    app: besu
+spec:
+  serviceName: besu
+  replicas: 1
+  selector:
+    matchLabels:
+      app: besu
+  template:
+    metadata:
+      labels:
+        app: besu
+    spec:
+      securityContext:
+        # The image runs as the besu user (uid 1000); make the volume its own.
+        fsGroup: 1000
+      containers:
+        - name: besu
+          image: hyperledger/besu:26.11.0
+          args:
+            - --genesis-file=/config/genesis.json
+            - --node-private-key-file=/secrets/validator.key
+            - --data-path=/data
+            - --min-gas-price=0
+            - --target-gas-limit=30000000
+            - --rpc-http-enabled
+            - --rpc-http-host=0.0.0.0
+            - --rpc-http-api=ETH,NET,WEB3,QBFT,DEBUG,TXPOOL
+            - --rpc-http-cors-origins=*
+            - --rpc-ws-enabled
+            - --rpc-ws-host=0.0.0.0
+            - --rpc-ws-api=ETH,NET,WEB3,QBFT,DEBUG,TXPOOL
+            - --host-allowlist=*
+            - --tx-pool=SEQUENCED
+            - --tx-pool-limit-by-account-percentage=1.0
+            - --tx-pool-max-size=1000000
+            - --revert-reason-enabled
+            - --discovery-enabled=false
+            - --metrics-enabled
+            - --metrics-protocol=opentelemetry
+          env:
+            # The JVM's heap; the nodes have 4-8 GB.
+            - name: BESU_OPTS
+              value: "-Xmx1g"
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: http://jaeger:4317
+            - name: OTEL_SERVICE_NAME
+              value: besu
+            # Record only calls that arrive inside a trace.
+            - name: OTEL_TRACES_SAMPLER
+              value: parentbased_always_off
+            # Traces only: Jaeger does not accept metrics.
+            - name: OTEL_METRICS_EXPORTER
+              value: none
+          ports:
+            - name: rpc-http
+              containerPort: 8545
+            - name: rpc-ws
+              containerPort: 8546
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: genesis
+              mountPath: /config
+              readOnly: true
+            - name: validator-key
+              mountPath: /secrets
+              readOnly: true
+          readinessProbe:
+            tcpSocket:
+              port: 8545
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: 8545
+            initialDelaySeconds: 60
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1536Mi
+            limits:
+              cpu: 500m
+              memory: 1536Mi
+      volumes:
+        - name: data
+          emptyDir: {}
+        - name: genesis
+          configMap:
+            name: besu-genesis
+        - name: validator-key
+          secret:
+            secretName: besu-validator-key
