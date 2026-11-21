@@ -11,11 +11,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 
@@ -511,12 +514,17 @@ func TestLoopsJoinTheQueuingRequestsTrace(t *testing.T) {
 	otel.SetTracerProvider(sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(rec)))
 	t.Cleanup(func() { otel.SetTracerProvider(prev) })
 
-	f := newFixture(t, Config{OnFinal: func(context.Context, pgx.Tx, Op) error { return nil }})
+	mint := testABI(t)
+	calldata, err := mint.Pack("mintTicket", common.HexToAddress("0xb0b"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	f := newFixture(t, Config{OnFinal: func(context.Context, pgx.Tx, Op) error { return nil }, ABIs: []*abi.ABI{mint}})
 	reqCtx, request := telemetry.Tracer().Start(context.Background(), "POST /events/{id}/tickets")
 	var traced Op
 	if err := pgx.BeginFunc(reqCtx, f.pool, func(tx pgx.Tx) error {
 		var err error
-		traced, err = f.ob.Enqueue(reqCtx, tx, Request{KeyID: f.key.ID, To: &target, Gas: 50_000})
+		traced, err = f.ob.Enqueue(reqCtx, tx, Request{KeyID: f.key.ID, To: &target, Data: calldata, Gas: 50_000})
 		return err
 	}); err != nil {
 		t.Fatal(err)
@@ -543,6 +551,16 @@ func TestLoopsJoinTheQueuingRequestsTrace(t *testing.T) {
 			t.Errorf("span %q is in trace %s, not the request's", s.Name(), s.SpanContext().TraceID())
 		}
 		names[s.Name()] = true
+		// Every outbox span says which contract and method, which Besu's don't.
+		if strings.HasPrefix(s.Name(), "outbox ") {
+			attrs := map[attribute.Key]string{}
+			for _, kv := range s.Attributes() {
+				attrs[kv.Key] = kv.Value.Emit()
+			}
+			if attrs["eth.method"] != "mintTicket" || attrs["eth.to"] != target.Hex() {
+				t.Errorf("span %q: eth.method %q, eth.to %q; want mintTicket, %s", s.Name(), attrs["eth.method"], attrs["eth.to"], target.Hex())
+			}
+		}
 	}
 	for _, want := range []string{"POST /events/{id}/tickets", "outbox enqueue", "outbox send", "outbox receipt", "outbox final-status hook"} {
 		if !names[want] {
@@ -552,4 +570,41 @@ func TestLoopsJoinTheQueuingRequestsTrace(t *testing.T) {
 	if n := len(rec.Ended()); n != 5 {
 		t.Errorf("%d spans, want 5: the untraced row must add none", n)
 	}
+}
+
+func TestMethodName(t *testing.T) {
+	abis := []*abi.ABI{testABI(t)}
+	mint, err := abis[0].Pack("mintTicket", common.HexToAddress("0xb0b"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range []struct {
+		name string
+		op   Op
+		want string
+	}{
+		{"a contract creation", Op{Calldata: []byte{0x60, 0x80, 0x60, 0x40}}, "deploy"},
+		{"a known method", Op{To: &target, Calldata: mint}, "mintTicket"},
+		{"an unknown selector", Op{To: &target, Calldata: []byte{0xde, 0xad, 0xbe, 0xef, 0x01}}, "0xdeadbeef"},
+		{"a plain transfer (a nonce-gap filler)", Op{To: &target}, "transfer"},
+		{"no ABIs at all", Op{To: &target, Calldata: mint}, hexutil.Encode(mint[:4])},
+	} {
+		in := abis
+		if c.name == "no ABIs at all" {
+			in = nil
+		}
+		if got := methodName(in, c.op); got != c.want {
+			t.Errorf("%s: %q, want %q", c.name, got, c.want)
+		}
+	}
+}
+
+// testABI is a one-method stand-in for TicketNFT's ABI.
+func testABI(t *testing.T) *abi.ABI {
+	t.Helper()
+	a, err := abi.JSON(strings.NewReader(`[{"type":"function","name":"mintTicket","inputs":[{"name":"to","type":"address"}],"outputs":[]}]`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return &a
 }

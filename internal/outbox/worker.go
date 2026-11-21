@@ -92,7 +92,7 @@ func (o *Outbox) claim(ctx context.Context, spanName, where string, handle func(
 		}
 		n = len(ops)
 		for _, op := range ops {
-			opCtx, span := telemetry.Child(telemetry.Extract(ctx, op.traceparent), spanName, opAttrs(op)...)
+			opCtx, span := telemetry.Child(telemetry.Extract(ctx, op.traceparent), spanName, o.opAttrs(op)...)
 			err := o.handleOne(opCtx, tx, op, handle)
 			telemetry.EndSpan(span, err)
 			if err != nil {
@@ -269,7 +269,7 @@ func (o *Outbox) final(ctx context.Context, tx pgx.Tx, id string) error {
 	if err != nil {
 		return err
 	}
-	ctx, span := telemetry.Child(ctx, "outbox final-status hook", opAttrs(op)...)
+	ctx, span := telemetry.Child(ctx, "outbox final-status hook", o.opAttrs(op)...)
 	err = o.cfg.OnFinal(ctx, tx, op)
 	telemetry.EndSpan(span, err)
 	return err

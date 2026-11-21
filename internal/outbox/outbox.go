@@ -24,7 +24,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/jackc/pgx/v5"
 	"go.opentelemetry.io/otel/attribute"
@@ -103,6 +105,10 @@ type Config struct {
 	BatchSize    int           // rows claimed per pass (50)
 	OnFinal      FinalHook
 	Logger       *slog.Logger
+	// ABIs name the method a transaction calls (eth.method on its spans),
+	// from the first 4 bytes of its calldata. A selector none of them knows
+	// shows as hex.
+	ABIs []*abi.ABI
 }
 
 // Outbox signs, saves, sends and confirms transactions.
@@ -158,7 +164,7 @@ func (o *Outbox) Enqueue(ctx context.Context, tx pgx.Tx, req Request) (Op, error
 	traceparent := telemetry.Inject(ctx)
 	ctx, span := telemetry.Child(ctx, "outbox enqueue")
 	op, err := o.enqueue(ctx, tx, req, traceparent)
-	span.SetAttributes(opAttrs(op)...)
+	span.SetAttributes(o.opAttrs(op)...)
 	span.SetAttributes(attribute.Bool("outbox.existing", op.Existing))
 	telemetry.EndSpan(span, err)
 	return op, err
@@ -199,25 +205,49 @@ func (o *Outbox) Send(ctx context.Context, id string) error {
 		if err != nil {
 			return err
 		}
-		ctx, span := telemetry.Child(ctx, "outbox send", opAttrs(op)...)
+		ctx, span := telemetry.Child(ctx, "outbox send", o.opAttrs(op)...)
 		err = o.attempt(ctx, tx, op)
 		telemetry.EndSpan(span, err)
 		return err
 	})
 }
 
-// opAttrs describes an operation on a span.
-func opAttrs(op Op) []attribute.KeyValue {
+// opAttrs describes an operation on a span. Besu's own spans show only the
+// JSON-RPC method: what the transaction does is known here, not there.
+func (o *Outbox) opAttrs(op Op) []attribute.KeyValue {
 	if op.ID == "" {
 		return nil
 	}
-	return []attribute.KeyValue{
+	attrs := []attribute.KeyValue{
 		attribute.String("outbox.op_id", op.ID),
 		attribute.String("outbox.status", string(op.Status)),
 		attribute.String("eth.from", op.From.Hex()),
 		attribute.Int64("eth.nonce", int64(op.Nonce)),
 		attribute.String("eth.tx_hash", op.TxHash.Hex()),
+		attribute.String("eth.method", methodName(o.cfg.ABIs, op)),
 	}
+	if op.To != nil { // none for a contract creation
+		attrs = append(attrs, attribute.String("eth.to", op.To.Hex()))
+	}
+	return attrs
+}
+
+// methodName is "deploy" for a contract creation, the ABI name of the called
+// method (mintTicket), its selector in hex if no ABI has it, or "transfer"
+// for a plain value transfer with no calldata.
+func methodName(abis []*abi.ABI, op Op) string {
+	switch {
+	case op.To == nil:
+		return "deploy"
+	case len(op.Calldata) < 4:
+		return "transfer"
+	}
+	for _, a := range abis {
+		if m, err := a.MethodById(op.Calldata[:4]); err == nil {
+			return m.Name
+		}
+	}
+	return hexutil.Encode(op.Calldata[:4])
 }
 
 // Get loads one operation.

@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel/attribute"
@@ -17,6 +18,7 @@ import (
 
 	"github.com/smlobo/kaleido-challenge/internal/api"
 	"github.com/smlobo/kaleido-challenge/internal/chain"
+	"github.com/smlobo/kaleido-challenge/internal/contracts/ticketnft"
 	"github.com/smlobo/kaleido-challenge/internal/db"
 	"github.com/smlobo/kaleido-challenge/internal/keystore"
 	"github.com/smlobo/kaleido-challenge/internal/outbox"
@@ -106,7 +108,14 @@ func Start(ctx context.Context, cfg Config, log *slog.Logger) (_ *App, err error
 		return nil, fmt.Errorf("deployer key: %w", err)
 	}
 
-	a.outbox = outbox.New(a.pool, a.keys, a.chain, outbox.Config{Logger: log, OnFinal: ticketing.OnFinal})
+	// Names the TicketNFT method each transaction calls, on its spans.
+	ticketABI, err := ticketnft.TicketNFTMetaData.ParseABI()
+	if err != nil {
+		return nil, fmt.Errorf("TicketNFT ABI: %w", err)
+	}
+	a.outbox = outbox.New(a.pool, a.keys, a.chain, outbox.Config{
+		Logger: log, OnFinal: ticketing.OnFinal, ABIs: []*abi.ABI{ticketABI},
+	})
 	a.svc = ticketing.New(ticketing.Config{
 		Pool: a.pool, Keys: a.keys, Outbox: a.outbox, Node: a.chain, Deployer: a.deployer, ChainID: cfg.ChainID,
 		PublicBaseURL: cfg.PublicBaseURL, AdminToken: cfg.AdminToken, Logger: log,
