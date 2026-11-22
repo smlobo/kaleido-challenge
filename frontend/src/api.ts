@@ -140,14 +140,15 @@ export const api = {
   createEvent: (ev: NewEvent, organizerToken: string) =>
     call<Event>("POST", "/events", { body: ev, token: organizerToken, idempotent: true }),
 
-  getEvent: (id: string) => call<Event>("GET", `/events/${id}`),
+  // Ids below may be pasted by hand: escape them so each stays one path segment.
+  getEvent: (id: string) => call<Event>("GET", `/events/${encodeURIComponent(id)}`),
 
   // The box office mints the next ticket number to the buyer's wallet.
   buyTicket: (eventId: string, userToken: string) =>
     // The id may be pasted by hand: escape it so it stays one path segment.
     call<Ticket>("POST", `/events/${encodeURIComponent(eventId)}/tickets`, { token: userToken, idempotent: true }),
 
-  getTicket: (id: string) => call<Ticket>("GET", `/tickets/${id}`),
+  getTicket: (id: string) => call<Ticket>("GET", `/tickets/${encodeURIComponent(id)}`),
 
   // Resale: each is a transaction from the user's own wallet.
   listTicket: (id: string, price: string, holderToken: string) =>

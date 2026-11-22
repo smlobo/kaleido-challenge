@@ -138,3 +138,7 @@ td.wrap { white-space: normal; min-width: 280px; }
 .tamper { align-items: center; }
 label.inline { flex-direction: row; align-items: center; gap: 6px; }
 label.inline select { min-width: 0; padding: 4px 8px; font-size: 0.85rem; }
+
+/* A pasted block (Add … created elsewhere) takes the whole row. */
+.row label.wide { flex: 1 1 100%; }
+.row label.wide textarea { width: 100%; }

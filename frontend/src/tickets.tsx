@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api, isFinal, type CheckInPass, type CreatedOrganizer, type CreatedUser, type Event, type Operation, type Ticket } from "./api";
+import { AddExisting, existingTicket } from "./existing";
 import { PassView } from "./pass";
 import { Card, Copyable, Empty, ErrorLine } from "./ui";
 
@@ -41,6 +42,7 @@ export function Tickets({
   events,
   rows,
   setRows,
+  onExisting,
   onHandToGate,
   refused,
 }: {
@@ -49,6 +51,7 @@ export function Tickets({
   events: Event[];
   rows: TicketRow[];
   setRows: (f: (prev: TicketRow[]) => TicketRow[]) => void;
+  onExisting: (t: Ticket) => Promise<void>;
   onHandToGate: (passJson: string) => void;
   refused: boolean;
 }) {
@@ -111,6 +114,27 @@ export function Tickets({
     }, 1500);
     return () => clearInterval(t);
   }, [inFlight]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // A ticket added from elsewhere while its mint was in flight has no
+  // operation to poll (only its buyer may read that): re-read the ticket.
+  const minting = rows
+    .filter((r) => !r.pending && r.ticket.status === "pending_mint")
+    .map((r) => r.ticket.id)
+    .join(",");
+  useEffect(() => {
+    if (!minting) return;
+    const t = setInterval(() => {
+      for (const id of minting.split(",")) {
+        api
+          .getTicket(id)
+          .then((ticket) => ticket.status !== "pending_mint" && update(id, (r) => ({ ...r, ticket })))
+          .catch(() => {
+            // try again next tick
+          });
+      }
+    }, 2000);
+    return () => clearInterval(t);
+  }, [minting]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const buy = async (e: FormEvent) => {
     e.preventDefault();
@@ -222,6 +246,7 @@ export function Tickets({
         </button>
       </form>
       <ErrorLine error={error} />
+      <AddExisting what="a ticket" add={async (id) => onExisting(await existingTicket(id))} />
       {rows.length === 0 ? (
         <Empty>No tickets yet.</Empty>
       ) : (

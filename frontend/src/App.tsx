@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { api, type CreatedOrganizer, type CreatedUser, type Event } from "./api";
+import { api, type CreatedOrganizer, type CreatedUser, type Event, type Ticket } from "./api";
+import { AddExisting, existingEvent, pastedOrganizer, pastedUser, upsert } from "./existing";
 import { clearPersisted, usePersisted } from "./store";
 import { ErrorPaths } from "./errorpaths";
 import { Gate } from "./gate";
@@ -26,6 +27,40 @@ export default function App() {
     setTickets([]);
   };
 
+  // Something created elsewhere: replace the row if the page has it already.
+  const addUser = (u: CreatedUser) => setUsers((prev) => upsert(prev, u, (x) => x.id));
+  const addOrg = (o: CreatedOrganizer) => setOrgs((prev) => upsert(prev, o, (x) => x.id));
+  const addEvent = (e: Event) => setEvents((prev) => upsert(prev, e, (x) => x.id));
+  const addTicket = async (t: Ticket) => {
+    // Its event too, so the row can show the event's name and resale cap.
+    if (!events.some((e) => e.id === t.event_id)) addEvent(await api.getEvent(t.event_id));
+    setTickets((prev) =>
+      prev.some((r) => r.ticket.id === t.id)
+        ? prev.map((r) => (r.ticket.id === t.id ? { ...r, ticket: t } : r))
+        : [{ ticket: t }, ...prev],
+    );
+  };
+
+  // Re-reads every event and ticket, for changes made outside the page
+  // (a script listing or buying a ticket, say).
+  const [refreshing, setRefreshing] = useState(false);
+  const refresh = async () => {
+    setRefreshing(true);
+    try {
+      const evs = await Promise.allSettled(events.map((e) => api.getEvent(e.id)));
+      evs.forEach((r) => r.status === "fulfilled" && addEvent(r.value));
+      const ts = await Promise.allSettled(tickets.filter((r) => !r.pending).map((r) => api.getTicket(r.ticket.id)));
+      ts.forEach((r) => {
+        if (r.status === "fulfilled") {
+          const t = r.value;
+          setTickets((prev) => prev.map((x) => (x.ticket.id === t.id && !x.pending ? { ...x, ticket: t } : x)));
+        }
+      });
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   return (
     <div className="page">
       <header className="top">
@@ -38,19 +73,23 @@ export default function App() {
           <input type="checkbox" checked={refused} onChange={(e) => setRefused(e.target.checked)} />
           Show refused actions
         </label>
+        <button type="button" className="ghost" onClick={refresh} disabled={refreshing} title="Re-read every event and ticket from the service">
+          {refreshing ? "Refreshing…" : "Refresh"}
+        </button>
         <button type="button" className="ghost" onClick={clear}>
           Clear
         </button>
       </header>
       {refused && <ErrorPaths />}
 
-      <Users users={users} onCreated={(u) => setUsers((prev) => [u, ...prev])} />
-      <Organizers orgs={orgs} onCreated={(o) => setOrgs((prev) => [o, ...prev])} />
+      <Users users={users} onCreated={(u) => setUsers((prev) => [u, ...prev])} onExisting={addUser} />
+      <Organizers orgs={orgs} onCreated={(o) => setOrgs((prev) => [o, ...prev])} onExisting={addOrg} />
       <Events
         orgs={orgs}
         events={events}
         onCreated={(e) => setEvents((prev) => [e, ...prev])}
         onUpdated={(e) => setEvents((prev) => prev.map((x) => (x.id === e.id ? e : x)))}
+        onExisting={addEvent}
       />
       <Tickets
         users={users}
@@ -58,6 +97,7 @@ export default function App() {
         events={events}
         rows={tickets}
         setRows={setTickets}
+        onExisting={addTicket}
         refused={refused}
         onHandToGate={(json) => {
           setHanded({ json, at: Date.now() });
@@ -71,7 +111,15 @@ export default function App() {
   );
 }
 
-function Users({ users, onCreated }: { users: CreatedUser[]; onCreated: (u: CreatedUser) => void }) {
+function Users({
+  users,
+  onCreated,
+  onExisting,
+}: {
+  users: CreatedUser[];
+  onCreated: (u: CreatedUser) => void;
+  onExisting: (u: CreatedUser) => void;
+}) {
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
@@ -111,6 +159,11 @@ function Users({ users, onCreated }: { users: CreatedUser[]; onCreated: (u: Crea
         </button>
       </form>
       <ErrorLine error={error} />
+      <AddExisting
+        what="a user"
+        paste="What create_user.py printed, or curl's JSON"
+        add={(text) => onExisting(pastedUser(text))}
+      />
       {users.length === 0 ? (
         <Empty>No users yet.</Empty>
       ) : (
@@ -141,7 +194,15 @@ function Users({ users, onCreated }: { users: CreatedUser[]; onCreated: (u: Crea
   );
 }
 
-function Organizers({ orgs, onCreated }: { orgs: CreatedOrganizer[]; onCreated: (o: CreatedOrganizer) => void }) {
+function Organizers({
+  orgs,
+  onCreated,
+  onExisting,
+}: {
+  orgs: CreatedOrganizer[];
+  onCreated: (o: CreatedOrganizer) => void;
+  onExisting: (o: CreatedOrganizer) => void;
+}) {
   const [name, setName] = useState("");
   const [adminToken, setAdminToken] = usePersisted("admin-token", "");
   const [busy, setBusy] = useState(false);
@@ -193,6 +254,11 @@ function Organizers({ orgs, onCreated }: { orgs: CreatedOrganizer[]; onCreated: 
         </button>
       </form>
       <ErrorLine error={error} />
+      <AddExisting
+        what="an organizer"
+        paste="What create_organizer.py printed, or curl's JSON"
+        add={(text) => onExisting(pastedOrganizer(text))}
+      />
       {orgs.length === 0 ? (
         <Empty>No organizers yet.</Empty>
       ) : (
@@ -235,11 +301,13 @@ function Events({
   events,
   onCreated,
   onUpdated,
+  onExisting,
 }: {
   orgs: CreatedOrganizer[];
   events: Event[];
   onCreated: (e: Event) => void;
   onUpdated: (e: Event) => void;
+  onExisting: (e: Event) => void;
 }) {
   const [name, setName] = useState("");
   const [orgChoice, setOrgChoice] = useState<string>(orgs[0]?.id ?? PASTED);
@@ -382,6 +450,7 @@ function Events({
         </div>
       </details>
       <ErrorLine error={error} />
+      <AddExisting what="an event" add={async (id) => onExisting(await existingEvent(id))} />
       {events.length === 0 ? (
         <Empty>No events yet.</Empty>
       ) : (
