@@ -543,7 +543,7 @@ func TestRecordHashSurvivesJSONB(t *testing.T) {
 	}
 	rec := string(tk.Record)
 	if !strings.HasPrefix(rec, `{"event_id":"`+e.ID+`","face_value":"100000000","issued_at":"`) ||
-		!strings.HasSuffix(rec, `Z","ticket_number":1,"tier":"general"}`) || strings.Contains(rec, " ") {
+		!strings.HasSuffix(rec, `Z","ticket_number":1}`) || strings.Contains(rec, " ") {
 		t.Fatalf("record not canonical: %s", rec)
 	}
 

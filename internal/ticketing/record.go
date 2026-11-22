@@ -19,7 +19,6 @@ func newRecord(eventID string, ticketNumber int64, faceValue string, issuedAt ti
 	b, err := json.Marshal(map[string]any{
 		"event_id":      eventID,
 		"ticket_number": ticketNumber,
-		"tier":          "general",
 		"face_value":    faceValue,
 		"issued_at":     issuedAt.UTC().Truncate(time.Second).Format(time.RFC3339),
 	})
