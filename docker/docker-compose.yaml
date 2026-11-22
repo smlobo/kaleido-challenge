@@ -115,6 +115,27 @@ services:
         condition: service_healthy
     restart: on-failure:3
 
+  # The demo page, built and served by nginx, which passes /api/... on to the
+  # service, so the browser sees one origin. Port 3000 leaves 5173 free for
+  # `npm run dev` while working on the page.
+  frontend:
+    build:
+      context: ../frontend
+    image: kaleido-ticketing-frontend
+    ports:
+      - 3000:8080
+    environment:
+      TICKETING_URL: http://ticketing:8080
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/healthz"]
+      interval: 2s
+      timeout: 5s
+      retries: 20
+    # nginx looks up the ticketing host name when it starts.
+    depends_on:
+      ticketing:
+        condition: service_healthy
+
 configs:
   # Validator node key; its address (0x950bffd0f9ed35b37879c186ae770d2c94f08147)
   # is encoded in genesis extraData — it is not recommended to change these.

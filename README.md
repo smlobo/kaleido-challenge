@@ -1,236 +1,138 @@
 # kaleido-challenge
-Event ticketing service on a local Besu QBFT chain (ERC-721 tickets).
 
-## Quick start
+An event-ticketing service where every ticket is an NFT on a private Besu chain.
 
-Start the chain (chain ID 1337, 2 s blocks, free gas) and Postgres (port 5432).
-Jaeger starts with them, since Besu sends it traces (UI on port 16686):
+## The idea
 
-```bash
-docker compose -f docker/docker-compose.yaml up -d --wait besu postgres
-```
+Organizers create events, users buy tickets, holders resell them under a price
+cap, and the organizer's gate checks them in at the door. Each of those steps is
+an Ethereum transaction, but nobody using the service needs a wallet, ETH or a
+browser extension:
 
-Milestone 1: Deploy a plain ERC-721 with a transaction the Go code signs itself and 
-sends with `eth_sendRawTransaction`, mint a token and read its owner back:
+- **The service holds every key.** It creates a signing key for each user (their
+  wallet) and three for each organizer (box office, gate, payout), and one
+  deployer key for the platform. Keys are stored in Postgres encrypted with
+  AES-256-GCM under a key-encryption key that only ever comes from the
+  environment.
+- **One TicketNFT contract per event.** The deployer deploys it; the organizer's
+  box office key holds the minter role and its gate key holds the gate role.
+- **The contract enforces the rules**, not just the service:
+  - only the box office mints,
+  - resale only goes through the contract's own `listForResale` / `buyResale` and never
+  above the event's resale cap, ordinary ERC-721 transfers are disabled,
+  - a check-in burns the ticket.
+- **A check-in needs two signatures.** The holder signs a short-lived pass
+  (EIP-712, shown as a QR code); the gate sends it in a transaction it signs
+  itself. The contract checks both, so the organizer can't check a ticket in
+  without its holder, and a copied pass expires in minutes and works only once.
+- **Writes are asynchronous and safe to retry.** Every write answers `202` with an
+  operation ID and needs an `Idempotency-Key`. The signed transaction is saved to
+  Postgres before it is sent (a transactional outbox), so a crash, a lost
+  connection or a down node delays a ticket but never loses or doubles one.
 
-```bash
-go run ./cmd/m1deploy
-```
+The chain is Besu with QBFT consensus: chain ID 1337, a block every 2 s, zero gas
+price. Everything is traced end to end with OpenTelemetry.
 
-Milestone 2: the same deploy and mint, but the deployer key is stored encrypted in
-Postgres and each nonce is reserved in the database transaction that saves the
-signed transaction. Run it twice to see the nonces continue:
+## Try it
 
-```bash
-export KEY_ENCRYPTION_KEY=$(openssl rand -base64 32)
-```
-
-```bash
-go run ./cmd/m2demo
-```
-
-`KEY_ENCRYPTION_KEY` only ever comes from the environment, never a file. Keep using
-the same value for as long as the database lives: keys encrypted under one value
-can't be decrypted with another.
-
-Milestone 3: the TicketNFT contract, one per event. The box office mints, holders
-list at no more than the resale cap, anyone buys a listed ticket, and the gate burns
-it at check-in, carrying a pass the holder signed (EIP-712), so both the organizer
-and the holder authorize the check-in on-chain. Standard ERC-721 transfers and approvals are disabled, so resale is
-the only way a ticket moves. Run the contract tests (needs Foundry):
-
-```bash
-cd contracts && forge test
-```
-
-Milestone 4: the transaction outbox. Every transaction is signed and saved to
-Postgres before it is sent. A submitter loop sends anything not yet sent (after a
-crash, say) and resends anything stuck, and a receipt loop records each result,
-with the revert reason for a failed call. Any number of instances can run the
-loops: `FOR UPDATE SKIP LOCKED` hands each row to one worker at a time. The demo
-deploys a TicketNFT and commits six mints, one of them a duplicate that reverts,
-without sending them; the loops do the rest. With `-crash` it exits before
-sending, and the next run finishes the job:
+Needs only Docker. One compose file runs Besu, Postgres, Jaeger, the service and
+the demo page; both images are built on the first run:
 
 ```bash
-go run ./cmd/m4demo -crash
+export KEY_ENCRYPTION_KEY=$(openssl rand -base64 32) ADMIN_TOKEN=$(openssl rand -hex 16)
 ```
-
-```bash
-go run ./cmd/m4demo
-```
-
-Milestone 5: the service itself. On start it waits up to 30 s for Postgres and
-Besu, checks the chain ID, applies migrations, creates the deployer key on first
-start (or loads it), and decrypts it so a wrong `KEY_ENCRYPTION_KEY` fails at
-once. Then it runs the outbox loops and serves `GET /healthz` and `GET /readyz`
-on `HTTP_PORT` (8080). Ctrl-C or SIGTERM stops it cleanly. Configuration is
-environment only: `KEY_ENCRYPTION_KEY` (required), `DATABASE_URL`,
-`ETH_RPC_URL`, `CHAIN_ID`, `HTTP_PORT`, `PUBLIC_BASE_URL`, and from milestone 6
-`ADMIN_TOKEN` (optional); the defaults match docker compose.
-
-```bash
-go run ./cmd/ticketing
-```
-
-```bash
-curl -s localhost:8080/readyz
-```
-
-Milestone 6: events, tickets and check-in over HTTP. An admin creates an
-organizer (with `ADMIN_TOKEN`), anyone creates a user, the organizer creates an
-event (its TicketNFT is deployed through the outbox), a user buys tickets (the
-organizer's box office mints them to the user's wallet), and the organizer
-checks a ticket in with a pass the holder makes at the door (the gate key burns
-it, and the contract checks the holder signed the pass). Writes answer `202` with an
-operation ID and need an `Idempotency-Key` header; `GET /operations/{id}`
-reports the result. The spec is
-[internal/api/openapi.yaml](internal/api/openapi.yaml), with Swagger UI at
-`/docs`. Start the service with an admin token (keep the same
-`KEY_ENCRYPTION_KEY` exported):
-
-```bash
-ADMIN_TOKEN=1234 go run ./cmd/ticketing
-```
-
-Exercise all endpoints:
-
-```bash
-./scripts/create_organizer.py "Rock Fest Ltd" --token 1234
-./scripts/create_user.py alice
-./scripts/create_event.py "Rock Fest 2027" --token <org-token>
-./scripts/buy_ticket.py <event-id> --token <alice-token>
-./scripts/create_pass.py <ticket-id> --token <alice-token> | ./scripts/check_in.py <ticket-id> --token <org-token> --pass -
-./scripts/get_operation.py OPERATION_ID --token <respective-token>
-curl localhost:8080/events/<event-id>
-curl localhost:8080/tickets/<ticket-id>
-curl localhost:8080/metadata/<event-id>/<token-id>
-curl localhost:8080/events/<event-id>/listings
-```
-
-Milestone 7: resale. A holder lists a ticket at no more than the event's resale
-cap (face value x `max_resale_bps` / 10000), can cancel the listing, and another
-user buys it. Each step is a transaction from that user's own wallet, and the
-contract checks it: only the holder lists, the price stays under the cap, and the
-buyer pays no more than `max_price`. No money moves yet; the contract records the
-price. A ticket has one transaction in flight at a time (`409 action_in_progress`
-otherwise). Once sold, the seller's check-in passes no longer work; the buyer
-makes a new one.
-
-```bash
-./scripts/create_user.py bob
-./scripts/list_ticket.py <ticket-id> --price 110000000 --token <alice-token>
-./scripts/buy_resale.py <ticket-id> --token <bob-token>
-./scripts/list_ticket.py <ticket-id> --price 90000000 --token <bob-token>
-./scripts/cancel_listing.py <ticket-id> --token <bob-token>
-```
-
-Milestone 9: the service as a container. The [Dockerfile](Dockerfile) builds a
-static binary in a Go stage and copies it into `distroless/static`, running as
-non-root (about 25 MB). The binary needs no files: migrations, the OpenAPI spec
-and the contract bytecode are compiled in, and configuration comes only from the
-environment. Its health check runs `/ticketing healthcheck`, which asks the
-service's own `/readyz`, since the image has no shell or curl. One compose file
-runs Besu, Postgres and the service; it takes `KEY_ENCRYPTION_KEY` and
-`ADMIN_TOKEN` from your shell:
 
 ```bash
 docker compose -f docker/docker-compose.yaml up -d --build --wait
 ```
 
-The scripts above then work unchanged against `localhost:8080`. Service logs:
+- Demo page: http://localhost:3000 (creating an organizer asks for `ADMIN_TOKEN`: `echo $ADMIN_TOKEN`)
+- Traces: http://localhost:16686 (service `ticketing`)
+- API docs: http://localhost:8080/docs
 
-```bash
-docker compose -f docker/docker-compose.yaml logs -f ticketing
-```
+It uses ports 3000, 4317-4318, 5432, 8080, 8545-8546 and 16686; stop anything
+already on them first.
 
-Distributed tracing. The service and Besu send OpenTelemetry spans to Jaeger,
-which compose also runs. Each API request is one trace: its SQL queries, its
-JSON-RPC calls to Besu with Besu's own spans inside them, and, joined later
-from the outbox, the send, each receipt check and the final-status hook. The
-request's trace context is saved with its transaction (`transactions.traceparent`),
-which is how the background loops add to the right trace. Besu reads the `b3`
-header, not `traceparent`, so the service sends both. Health checks and the
-loops' idle polling create no traces. Open the UI, pick service `ticketing`:
+## Architecture
 
-```bash
-open http://localhost:16686
-```
+### Services and who calls whom
 
-Tracing is on when `OTEL_EXPORTER_OTLP_ENDPOINT` is set (compose sets it). To
-trace a `go run` instance, leave Jaeger running from compose:
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/architecture-dark.svg">
+  <img alt="Services: the browser calls the frontend, which proxies /api to the ticketing service; the service uses Postgres and Besu, and both send traces to Jaeger" src="docs/img/architecture-light.svg">
+</picture>
 
-```bash
-OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 ADMIN_TOKEN=1234 go run ./cmd/ticketing
-```
+- **frontend** serves the demo page and forwards `/api/*` to the service, so the
+  browser sees one origin.
+- **ticketing** is a single Go binary with no files: migrations, the OpenAPI spec
+  and the contract bytecode are compiled in, and configuration is environment
+  only. Run as many instances as you like against one Postgres.
+- **Postgres** is the source of truth for everything off chain, and the place all
+  coordination between instances happens.
+- **Besu** runs the contracts. The service talks to it only over JSON-RPC.
+- **Jaeger** collects traces from both the service and Besu. A request's trace
+  context is saved with its transaction, so the background loops' send and
+  receipt spans join the request's trace.
 
-Demo frontend: a React + TypeScript page ([frontend/](frontend)) with forms for
-the scripts' first steps: create a user, an organizer (with `ADMIN_TOKEN`) and
-an event, each with a table of what came back: the token (with a copy
-button), the Postgres id, and the chain addresses (wallet, box office and gate,
-event contract). An event's row shows `deploying` until its contract is mined.
-A Tickets section buys a ticket for a user, and on each ticket lists it (at
-most the resale cap, filled in), cancels the listing, or buys it as another
-user. Each row shows the owner by name and its latest transaction as it goes
-from `signed` to `mined`, with the block number. **Show pass** on a ticket
-makes the holder's signed check-in pass and shows it as a QR code with its
-five-minute countdown. The Gate section scans it with the camera (or from an
-image, or takes it handed over or pasted), finds the event's organizer from
-the pass's contract address, and checks the ticket in with that organizer's
-token; the ticket's row turns `checked in` once the burn is mined.
-**Show refused actions** (in the header) offers every action on every ticket,
-as any user, plus pass tampering and the wrong gate, and lists the error paths
-to try with the code each returns (for example `422 buyer_is_seller`,
-`409 already_checked_in`, `422 pass_not_from_holder`).
-The Vite dev server proxies `/api` to the service, so the browser sees one
-origin and the API needs no CORS. With the service running on port 8080:
+### Writes
 
-```bash
-cd frontend && npm install && npm run dev
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/write-flow-dark.svg">
+  <img alt="The life of a write: dry run against Besu, save the signed transaction in Postgres, send it, answer 202, the submitter loop as the fallback sender, record the receipt in the background, then read the result from Postgres" src="docs/img/write-flow-light.svg">
+</picture>
 
-Then open http://localhost:5173. What the page creates is kept in that
-browser's local storage until you press Clear; point it at another service with
-`TICKETING_URL=http://host:port npm run dev`.
+The submitter loop (3b) is the fallback, not the main path. It sends any row the
+fast path didn't: Besu was down, the send timed out, or the process died between
+COMMIT and send. It also resends the same signed bytes when no receipt arrives
+within 10 s, for example after Besu restarts and loses its transaction pool. The
+row was committed before the first send, so nothing is ever lost, and a resend
+reuses the same nonce, so nothing is ever doubled.
 
-After editing the spec, regenerate the server code:
+### Reads
 
-```bash
-go generate ./internal/api
-```
+Reads never touch the chain. `GET /operations/{id}`, tickets, events, listings and
+the ERC-721 metadata are all answered from Postgres, which the receipt loop's
+final-status hook updates from each mined result. Postgres is the service's
+projection of the chain: within a second or so of the block, it never shows
+anything the chain doesn't have, and reads stay fast and keep working while Besu
+is down. That holds because nothing changes a ticket on chain except the
+service's own transactions: transfers are disabled in the contract and the
+service holds every key. With open transfers, it would have to index the
+contract's events instead.
 
-Run the Go tests (chain tests skip if Besu is down, database tests if Postgres is
-down; `-count=1` skips Go's test cache):
+### Concurrency map
 
-```bash
-go test -count=1 ./...
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/concurrency-dark.svg">
+  <img alt="Concurrency map: the goroutines in one ticketing instance and the Postgres locks they share with other instances" src="docs/img/concurrency-light.svg">
+</picture>
 
-More commands for inspecting the chain (`cast`, Besu logs, scripts): [docs/dev-tools.md](docs/dev-tools.md).
+The service code has no mutexes. Every guarantee that matters has to hold across
+instances, so each one is a Postgres lock or constraint:
 
-## Layout
-
-| Path | What |
+| Guarantee | How |
 |---|---|
-| `contracts/src` | Solidity sources (OpenZeppelin 5.6.1, solc 0.8.38; settings in `contracts/foundry.toml`) |
-| `contracts/test` | Forge tests for TicketNFT |
-| `contracts/build.sh` | Compiles with Foundry (`forge build`) and regenerates the Go bindings |
-| `contracts/build` | Committed ABI and bytecode |
-| `internal/contracts` | Committed abigen v2 bindings, so the service builds without solc |
-| `internal/chain` | Signing, raw transaction send, receipts (with Besu's revert reason) |
-| `internal/db` | Postgres pool and embedded schema migrations (`internal/db/migrations`) |
-| `internal/keystore` | AES-256-GCM encrypted signing keys and nonce reservation |
-| `internal/outbox` | Transaction outbox: enqueue, send, submitter and receipt loops |
-| `internal/app` | The service: configuration, startup, health checks, shutdown |
-| `internal/api` | HTTP layer: `openapi.yaml`, generated server code, handlers, bearer tokens, Swagger UI |
-| `internal/ticketing` | Business rules: organizers, users, events, tickets, check-in, resale, and the outbox's final-status hook |
-| `docs/schema.sql` | The schema all migrations produce, in one file, for reading; regenerate with `scripts/schema-dump.sh` |
-| `internal/dbtest` | Test helper: a fresh migrated schema per test |
-| `internal/telemetry` | OpenTelemetry setup, SQL spans, JSON-RPC spans with trace headers, trace context for the outbox |
-| `cmd/ticketing` | The service's entry point |
-| `frontend` | Demo page: React + TypeScript on Vite, proxying `/api` to the service |
-| `Dockerfile` | The service image: Go build stage, distroless non-root runtime |
-| `docker/docker-compose.yaml` | Besu, Postgres and the service |
-| `cmd/m1deploy` | Milestone 1 smoke test |
-| `cmd/m2demo` | Milestone 2 smoke test |
-| `cmd/m4demo` | Milestone 4 smoke test |
+| Each key's nonces are unique and gapless | `UPDATE signing_keys SET next_nonce = next_nonce + 1 … RETURNING`: the row lock queues requests from the same key; a rollback returns the nonce |
+| Ticket numbers are unique, and the last ticket goes to one buyer | `UPDATE events SET tickets_issued = tickets_issued + 1 WHERE … tickets_issued < max_supply` |
+| A ticket has one chain action in flight at a time | `SELECT … FROM tickets … FOR UPDATE OF t`, then a check for a resale or check-in still `signed` or `submitted` |
+| Each transaction is sent by one worker at a time | `FOR UPDATE SKIP LOCKED` on `transactions`: the fast path and both loops, on every instance, skip rows another holds |
+| A retried request never creates a second operation | `UNIQUE (idempotency_key)`: the loser rolls back and returns the winner's result |
+| One instance migrates at a time; there is one deployer key | `pg_advisory_lock` around migrations; a partial unique index on the deployer |
+
+**Lock order.** Every write path locks at most one entity row (an event or a
+ticket) and then one key row, always in that order, so no two transactions can
+wait on each other in a cycle. The loops never wait at all: `SKIP LOCKED` passes
+over busy rows.
+
+**Shutdown.** SIGTERM stops the HTTP server first, letting requests in flight
+finish their save and send; then the loops finish the pass they are in and stop;
+then traces are flushed.
+
+## More
+
+- [docs/milestones.md](docs/milestones.md): how it was built, step by step, with
+  the commands for each step
+- [docs/layout.md](docs/layout.md): what lives where in the repo
+- [docs/dev-tools.md](docs/dev-tools.md): inspecting the chain and the database
+- [docs/schema.sql](docs/schema.sql): the full database schema
+- [deploy/k8s/README.md](deploy/k8s/README.md): the Kubernetes deployment
